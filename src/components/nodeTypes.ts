@@ -1,3 +1,8 @@
-import { ActionNode, BranchNode, ContainerNode } from './nodes'
+import { ActionNode, BranchNode, CollapsedNode, ContainerNode } from './nodes'
 
-export const nodeTypes = { action: ActionNode, container: ContainerNode, branch: BranchNode }
+export const nodeTypes = {
+  action: ActionNode,
+  container: ContainerNode,
+  collapsed: CollapsedNode,
+  branch: BranchNode,
+}

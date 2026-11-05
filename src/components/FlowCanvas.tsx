@@ -1,73 +1,144 @@
-import { Background, Controls, MiniMap, ReactFlow, type NodeMouseHandler } from '@xyflow/react'
+import {
+  Background,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  useReactFlow,
+  type NodeMouseHandler,
+} from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildGraph, type VisualEdge, type VisualNode } from '../graph/buildGraph'
-import type { FlowNode, ParsedFlow } from '../model/types'
+import { ancestorsOf } from '../model/tree'
+import type { ParsedFlow } from '../model/types'
+import { CanvasContext } from './canvasContext'
+import { elk } from './elk'
 import { nodeTypes } from './nodeTypes'
+
+/** A request to move the viewport to a node; `nonce` makes repeated requests distinct. */
+export interface FocusRequest {
+  id: string
+  nonce: number
+  /**
+   * `zoom` fits the node on screen; `center` pans to it keeping the current zoom;
+   * `fit` fits the whole diagram (id is ignored).
+   */
+  mode: 'zoom' | 'center' | 'fit'
+}
 
 interface Props {
   flow: ParsedFlow
-  search: string
-  onSelect: (node: FlowNode | null) => void
+  collapsed: ReadonlySet<string>
+  /** Search matches, or null when no search is active. */
+  matches: ReadonlySet<string> | null
+  selectedId: string | null
+  focus: FocusRequest | null
+  onSelect: (id: string | null) => void
+  onToggleCollapse: (id: string) => void
 }
 
-export function FlowCanvas({ flow, search, onSelect }: Props) {
-  // Results are tagged with the flow they were computed for, so a stale
-  // layout is never shown while the next one is being computed.
-  const [result, setResult] = useState<{
-    flow: ParsedFlow
-    nodes: VisualNode[]
-    edges: VisualEdge[]
-    error?: string
-  } | null>(null)
+interface LayoutResult {
+  flow: ParsedFlow
+  collapsed: ReadonlySet<string>
+  nodes: VisualNode[]
+  edges: VisualEdge[]
+  error?: string
+}
 
+export function FlowCanvas(props: Props) {
+  const { flow, collapsed, matches, selectedId, focus, onSelect, onToggleCollapse } = props
+  const rf = useReactFlow()
+
+  // Results are tagged with their inputs so a stale layout is never shown for new inputs.
+  const [result, setResult] = useState<LayoutResult | null>(null)
   useEffect(() => {
     let cancelled = false
-    buildGraph(flow)
-      .then((g) => !cancelled && setResult({ flow, ...g }))
+    buildGraph(flow, elk, { collapsed })
+      .then((g) => !cancelled && setResult({ flow, collapsed, ...g }))
       .catch(
-        (e: unknown) => !cancelled && setResult({ flow, nodes: [], edges: [], error: String(e) }),
+        (e: unknown) =>
+          !cancelled && setResult({ flow, collapsed, nodes: [], edges: [], error: String(e) }),
       )
     return () => {
       cancelled = true
     }
-  }, [flow])
+  }, [flow, collapsed])
 
+  // While a re-layout (e.g. expand/collapse) is running, keep showing the previous one.
   const graph = result?.flow === flow ? result : null
-  const error = graph?.error
+  const fresh = graph?.collapsed === collapsed
 
-  // Dim everything that doesn't match the search box.
   const nodes = useMemo(() => {
     if (!graph) return []
-    const q = search.trim().toLowerCase()
-    if (!q) return graph.nodes
+    // A match hidden inside a collapsed container lights up that container instead.
+    const hiddenMatchOwners = new Set<string>()
+    if (matches) {
+      for (const id of matches) {
+        const owner = ancestorsOf(flow, id).find((a) => collapsed.has(a))
+        if (owner) hiddenMatchOwners.add(owner)
+      }
+    }
     return graph.nodes.map((n) => {
-      if (n.type === 'branch') return n
-      const fn = n.data.flowNode
-      const hay = `${fn.name} ${fn.type} ${fn.connector ?? ''} ${JSON.stringify(fn.raw.inputs ?? '')}`
-      return { ...n, className: hay.toLowerCase().includes(q) ? 'match' : 'dimmed' }
+      const selected = n.id === selectedId
+      if (!matches || n.type === 'branch') return selected ? { ...n, selected } : n
+      const className = matches.has(n.id)
+        ? 'match'
+        : hiddenMatchOwners.has(n.id)
+          ? 'match-inside'
+          : 'dimmed'
+      return { ...n, selected, className }
     })
-  }, [graph, search])
+  }, [graph, matches, selectedId, flow, collapsed])
 
-  const onNodeClick: NodeMouseHandler = (_, n) => onSelect(flow.byId.get(n.id) ?? null)
+  // Move the viewport once the requested node is in the current layout.
+  const handledNonce = useRef<number | null>(null)
+  useEffect(() => {
+    if (!focus || !fresh || handledNonce.current === focus.nonce) return
+    if (focus.mode !== 'fit' && !nodes.some((n) => n.id === focus.id)) return
+    handledNonce.current = focus.nonce
+    const frame = requestAnimationFrame(() => {
+      if (focus.mode === 'fit') {
+        void rf.fitView({ duration: 300 })
+        return
+      }
+      if (focus.mode === 'zoom') {
+        void rf.fitView({ nodes: [{ id: focus.id }], duration: 400, maxZoom: 1.1, padding: 0.4 })
+        return
+      }
+      const n = rf.getInternalNode(focus.id)
+      if (!n) return
+      const { x, y } = n.internals.positionAbsolute
+      const w = n.measured.width ?? n.width ?? 0
+      void rf.setCenter(x + w / 2, y + 40, { zoom: rf.getZoom(), duration: 300 })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focus, fresh, nodes, rf])
 
-  if (error) return <div className="empty">Layout failed: {error}</div>
+  const actions = useMemo(() => ({ toggleCollapse: onToggleCollapse }), [onToggleCollapse])
+  const onNodeClick: NodeMouseHandler = (_, n) => {
+    if (flow.byId.has(n.id)) onSelect(n.id)
+  }
+
+  if (graph?.error) return <div className="empty">Layout failed: {graph.error}</div>
   if (!graph) return <div className="empty">Laying out…</div>
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={graph.edges}
-      nodeTypes={nodeTypes}
-      onNodeClick={onNodeClick}
-      onPaneClick={() => onSelect(null)}
-      nodesConnectable={false}
-      fitView
-      minZoom={0.1}
-    >
-      <Background />
-      <Controls showInteractive={false} />
-      <MiniMap pannable zoomable />
-    </ReactFlow>
+    <CanvasContext.Provider value={actions}>
+      <ReactFlow
+        nodes={nodes}
+        edges={graph.edges}
+        nodeTypes={nodeTypes}
+        onNodeClick={onNodeClick}
+        onPaneClick={() => onSelect(null)}
+        nodesConnectable={false}
+        nodesDraggable={false}
+        fitView
+        minZoom={0.05}
+      >
+        <Background />
+        <Controls showInteractive={false} />
+        <MiniMap pannable zoomable />
+      </ReactFlow>
+    </CanvasContext.Provider>
   )
 }

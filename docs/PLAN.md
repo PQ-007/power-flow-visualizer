@@ -79,7 +79,7 @@ Key model facts the code relies on:
 
 ## 6. Milestones
 
-### M0 — Dev environment + walking skeleton ✅ (this commit)
+### M0 — Dev environment + walking skeleton ✅
 
 - Vite + React 19 + TypeScript, oxlint, Prettier, Vitest, GitHub Actions CI.
 - Parser for zip/JSON shapes, all container kinds, connector extraction, basic warnings.
@@ -88,25 +88,40 @@ Key model facts the code relies on:
 
 ### M1 — Viewer you can use every day
 
-- Collapse / expand containers (click header); "collapse all below depth N".
-- Left **outline tree** (like a table of contents), synced with canvas selection; click to
-  zoom-to-node.
-- Connector display names and icons from a bundled offline table (`sharepointonline` →
-  SharePoint), friendly operation titles (`PatchItem` → Update item).
-- Show the key inputs on the card (e.g. condition expression, Compose value, variable name).
+Done:
+
+- ✅ Collapse / expand containers from the canvas or the outline; "Show" levels (top level only,
+  2 levels, 3 levels, everything). Flows over 80 steps open with nested containers collapsed.
+- ✅ Left **outline** (table of contents) sharing collapse state with the canvas; clicking an
+  item expands whatever hides it, selects it and zooms to it. While searching, the outline shows
+  only matches and the containers leading to them.
+- ✅ Search matches hidden inside collapsed containers mark that container (dashed highlight).
+- ✅ Connector display names and friendly operation titles from an offline table
+  (`src/model/catalog.ts`; unknown ids are humanized).
+- ✅ Key input on each card: condition expression, Switch subject, loop source, variable
+  assignments, HTTP method + URL, SharePoint list, Terminate status… (`src/model/describe.ts`).
+- ✅ Details panel: clickable "Inside", "Runs after" and "Then" links to jump around.
+- ✅ ELK runs in a Web Worker and ships as a separate file (main bundle 1.9 MB → 0.44 MB).
+  A 361-step synthetic flow expands fully in ~0.5 s.
+- ✅ Keyboard: `/` focuses search, `Esc` clears search/selection.
+
+Remaining:
+
 - Paste flow JSON from the clipboard; designer "Copy action" format.
-- Multiple flows from a solution: flow picker with search; remember last opened via IndexedDB.
-- Performance: run ELK in a Web Worker and lazy-load it (it's ~1.5 MB); target smooth pan/zoom on
-  500+ action flows.
+- Flow picker with search for solutions with many flows; remember last opened (IndexedDB).
+- Connector icons (bundled, offline).
 - Child flows: if a `Workflow` action calls a flow that's in the same solution, link to it.
+- **Open in Power Automate** button: build the designer URL from the environment and flow ids
+  in the export. Just a link; the app itself still makes no network calls.
 
 ### M2 — Understanding tools ("find the piece to fix")
 
 - **Expression parser** for WDL (`@{…}`, `@fn(...)`, `?['a/b']` paths) — shared with M3.
+- **Clickable expressions**: pretty-print long nested expressions; every `body('X')`,
+  `outputs('X')`, `items('Loop')`, `variables('v')` is a link to that action or variable.
 - **Variables view**: every variable, where it's initialized, set, incremented, appended, read.
   Click → highlight all those actions.
-- **Data lineage**: from `body('X')`, `outputs('X')`, `items('Loop')`, `triggerOutputs()`
-  references, show "uses data from" / "data used by" for each action; optional overlay of
+- **Data lineage**: "uses data from" / "data used by" for each action; optional overlay of
   data-flow edges on the canvas.
 - **Search 2.0**: filters like `connector:sharepoint`, `type:SetVariable`, `uses:ApprovalStatus`,
   `fails-to:Catch`.
@@ -114,6 +129,24 @@ Key model facts the code relies on:
   URLs, Apply-to-each with concurrency + Set variable (race), unused variables, deep nesting.
 - **Plain-language summary** (deterministic, no AI): "Triggered when an item is created in
   SharePoint 'Invoices'. If Amount > 10000 → starts an approval …".
+- **Notes on actions**: attach a note to any action, saved as a small JSON file next to the
+  export, so what one person figured out is there for the next.
+
+### M2.5 — Solution-wide view (many flows by many people)
+
+- Load a whole solution (zip, or an unpacked `pac solution unpack` folder) and search across
+  every flow at once: "which flows write to SharePoint list _Invoices_?", "who uses connection
+  reference X?", "who calls child flow Y?".
+- **Solution map**: flows as boxes, child-flow calls as arrows, plus the lists, tables and
+  mailboxes each flow reads or writes. Click a flow to open its diagram.
+
+### M2.6 — Real run overlay
+
+- Load the results of a real run and colour the diagram: succeeded / failed / skipped, with each
+  action's real inputs and outputs in the details panel.
+- The app stays offline: run results come from a small PowerShell/CLI script the user runs
+  themselves (documented in the repo), then they drop the JSON into the app.
+- The simulator (M3) can reuse those real outputs as its mocks.
 
 ### M3 — Simulator (dry run)
 
@@ -151,12 +184,19 @@ Walk the flow the way the engine would, with fake data, and show which path is t
   coloured on the canvas, side-by-side JSON diff for changed ones.
 - Export the diagram as PNG / SVG, and as Mermaid text for wikis.
 - Export a single self-contained HTML report (diagram + variables + lint) to hand to colleagues.
+- **CLI** reusing the pure core: `pfv render flow.json --mermaid` for docs and PRs,
+  `pfv diff old.zip new.zip` for a reviewable change summary.
 
 ### M5 — Packaging
 
 - **PWA** (installable, works fully offline) — cheapest way to get "its own window".
 - Optional **Tauri** desktop build (small native `.exe`, open `.zip` by double-click /
   file association) if a real desktop app is wanted.
+- Optional **VS Code extension**: diagram beside the flow JSON for teams that keep solutions in
+  git.
+
+Deliberately not planned: AI "explain this flow" (would send flow contents to an outside
+service; the deterministic summary in M2 covers most of the value).
 
 ## 7. Testing strategy
 
@@ -174,12 +214,12 @@ Walk the flow the way the engine would, with fake data, and show which path is t
 | Expression evaluator will never be 100% complete             | Ask-the-user fallback; show "unsupported: fn" clearly instead of guessing      |
 | Huge flows (1000+ actions) slow to lay out                   | Web Worker, collapse by default below depth N, cache layout per collapse state |
 | Exports may contain secrets / personal data                  | Strictly local processing; CSP; never commit real exports                      |
-| ELK bundle size (~1.5 MB)                                    | Lazy-load in a worker (M1)                                                     |
 
 ## 9. Suggested order of work (next steps)
 
-1. M1: collapse/expand + outline tree (biggest usability win for large flows).
-2. M1: connector names/icons + key inputs on cards.
-3. M2: expression parser → variables view → lineage.
-4. M3: simulator engine on top of the expression parser, then the simulator UI.
-5. M4/M5 as needed.
+1. ✅ M1: collapse/expand, outline, friendly names, key inputs on cards, layout worker.
+2. M2: expression parser → clickable expressions → variables view → lineage.
+3. M2.5: solution-wide search and map.
+4. M2.6: real run overlay.
+5. M3: simulator engine (reusing the expression parser and real-run outputs), then its UI.
+6. M1 leftovers, M4, M5 as needed.

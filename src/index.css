@@ -12,6 +12,7 @@
   --yes: #1a7f37;
   --no: #cf222e;
   --danger: #cf222e;
+  --highlight: #f5a623;
   color-scheme: light dark;
   font-family: system-ui, 'Segoe UI', sans-serif;
   font-size: 14px;
@@ -68,11 +69,17 @@ body {
   color: var(--text);
   cursor: pointer;
 }
+.toolbar button[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
 .toolbar .search {
   cursor: text;
   min-width: 280px;
   flex: 1;
   max-width: 480px;
+}
+.muted {
+  color: var(--muted);
 }
 .warn {
   color: #b35c00;
@@ -89,16 +96,24 @@ main {
   display: flex;
   min-height: 0;
 }
-main > .react-flow {
+main > .canvas {
   flex: 1;
+  min-width: 0;
+  position: relative;
 }
 .empty {
   margin: auto;
   text-align: center;
   color: var(--muted);
 }
+.canvas > .empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+}
 
-/* Nodes */
+/* Cards (actions, triggers, collapsed containers) */
 .card {
   width: 100%;
   height: 100%;
@@ -115,6 +130,23 @@ main > .react-flow {
 .card.kind-trigger {
   border-left-color: var(--trigger);
 }
+.card.kind-condition,
+.card.kind-switch {
+  border-left-color: var(--condition);
+}
+.card.kind-foreach,
+.card.kind-until {
+  border-left-color: var(--loop);
+}
+.card.kind-scope {
+  border-left-color: var(--scope);
+}
+.card.collapsed {
+  border-style: dashed;
+  border-left-style: solid;
+  padding-left: 6px;
+  gap: 6px;
+}
 .card.selected,
 .container.selected {
   outline: 2px solid var(--accent);
@@ -123,9 +155,11 @@ main > .react-flow {
   font-size: 16px;
   width: 18px;
   text-align: center;
+  flex: none;
 }
 .card-text {
   min-width: 0;
+  flex: 1;
 }
 .card-title {
   font-weight: 600;
@@ -140,7 +174,48 @@ main > .react-flow {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.card-summary {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 11px;
+  margin-top: 2px;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.badge {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-radius: 8px;
+  padding: 0 6px;
+}
 
+.toggle {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 20px;
+}
+.toggle:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--text);
+}
+.toggle:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.toggle-spacer {
+  flex: none;
+  width: 20px;
+}
+
+/* Expanded containers and their branches */
 .container {
   width: 100%;
   height: 100%;
@@ -161,9 +236,18 @@ main > .react-flow {
 .container-header {
   display: flex;
   gap: 8px;
-  align-items: baseline;
-  padding: 10px 12px;
+  align-items: center;
+  padding: 8px 12px;
   cursor: pointer;
+}
+.container-header .card-text {
+  display: flex;
+  flex-direction: column;
+}
+.container-header .card-text > div:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .branch {
@@ -193,11 +277,16 @@ main > .react-flow {
   font-size: 12px;
 }
 
+/* Search + edges */
 .react-flow__node.dimmed {
   opacity: 0.25;
 }
-.react-flow__node.match .card {
-  outline: 2px solid #f5a623;
+.react-flow__node.match .card,
+.react-flow__node.match .container {
+  outline: 2px solid var(--highlight);
+}
+.react-flow__node.match-inside .card {
+  outline: 2px dashed var(--highlight);
 }
 .react-flow__edge.edge-abnormal path {
   stroke: var(--danger);
@@ -207,10 +296,73 @@ main > .react-flow {
   opacity: 0;
 }
 
+/* Outline */
+.outline {
+  width: 280px;
+  flex: none;
+  overflow: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 8px 0;
+  font-size: 13px;
+}
+.outline ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.outline-title {
+  padding: 0 12px 8px;
+  font-weight: 600;
+}
+.outline-title small,
+.outline-empty {
+  color: var(--muted);
+  font-weight: normal;
+}
+.outline-empty {
+  padding: 0 12px;
+}
+.outline-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.outline-row:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.outline-row.selected {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.outline-row.match .outline-name {
+  background: color-mix(in srgb, var(--highlight) 35%, transparent);
+  border-radius: 3px;
+}
+.outline-icon {
+  width: 16px;
+  text-align: center;
+  color: var(--muted);
+  flex: none;
+}
+.outline-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.outline-branch {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+}
+
 /* Details panel */
 .details {
   width: 420px;
   max-width: 45vw;
+  flex: none;
   overflow: auto;
   padding: 12px 16px;
   background: var(--surface);
@@ -225,7 +377,7 @@ main > .react-flow {
   margin: 0;
   font-size: 16px;
 }
-.details header button {
+.details .close {
   font-size: 20px;
   background: none;
   border: none;
@@ -242,6 +394,24 @@ main > .react-flow {
 }
 .details dd {
   margin: 0;
+  min-width: 0;
+}
+.details .link {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.details .link:hover {
+  text-decoration: underline;
+}
+.details code.wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
 }
 .details pre {
   font-size: 12px;
@@ -249,4 +419,20 @@ main > .react-flow {
   padding: 8px;
   border-radius: 6px;
   overflow: auto;
+}
+
+@media (max-width: 800px) {
+  .outline {
+    position: absolute;
+    z-index: 10;
+    height: 100%;
+    box-shadow: 2px 0 8px rgb(0 0 0 / 0.15);
+  }
+  .details {
+    position: absolute;
+    right: 0;
+    z-index: 10;
+    height: 100%;
+    max-width: 90vw;
+  }
 }

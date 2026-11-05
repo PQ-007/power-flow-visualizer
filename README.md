@@ -3,9 +3,16 @@
 See any Power Automate cloud flow as a diagram — without opening Power Automate.
 
 Drop an exported flow (`.zip` package, solution `.zip`, or a definition `.json`) into the app and
-get a zoomable flow chart of triggers, actions, conditions, switches, loops and scopes. Click any
-action to see its type, connector, `runAfter` rules and raw JSON. Search highlights actions by
-name, connector or anything in their inputs (variable names, expressions, URLs…).
+get a zoomable flow chart of triggers, actions, conditions, switches, loops and scopes.
+
+- Each card shows the designer name, the connector and operation ("SharePoint · Update item")
+  and the key input (condition expression, variable assignment, list name, URL…).
+- Collapse and expand any container, or pick how many levels to show. Large flows open collapsed.
+- The outline on the left lists every step; click one to expand what hides it and zoom to it.
+- Search (`/`) matches names, connectors and anything in an action's inputs (variable names,
+  expressions, URLs…). Matches inside collapsed containers mark the container.
+- Click an action for its details and raw JSON, with links to its container, what it runs after
+  and what runs after it. Red dashed edges show error-handling paths (`runAfter` Failed/TimedOut).
 
 Everything runs locally in the browser. Files are never uploaded and no connector is ever called.
 
@@ -44,9 +51,13 @@ npm run dev        # http://localhost:5173 — click "Load sample"
 ```
 src/
   model/types.ts          UI-agnostic flow model (FlowNode, FlowBranch, ParsedFlow)
+  model/catalog.ts        offline connector / operation / action-type display names
+  model/describe.ts       card titles and one-line summaries (condition text, assignments…)
+  model/tree.ts           ancestors, depth, collapse defaults, designer-order walk
   parser/                 .zip/.json → definition → ParsedFlow   (pure TS, unit tested)
-  graph/buildGraph.ts     ParsedFlow → ELK layout → React Flow nodes/edges
-  components/             canvas, node renderers, details panel
+  analysis/search.ts      search matching
+  graph/buildGraph.ts     ParsedFlow (+ collapsed set) → ELK layout → React Flow nodes/edges
+  components/             canvas, outline, node renderers, details panel, ELK worker setup
   samples/                sample flow used by "Load sample" and tests
 docs/PLAN.md              roadmap and design
 ```
