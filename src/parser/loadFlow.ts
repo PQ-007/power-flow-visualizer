@@ -68,7 +68,7 @@ export function loadFlowFromJson(
   fallbackName = 'Untitled flow',
   meta: FlowMeta = {},
 ): ParsedFlow {
-  const json: unknown = JSON.parse(text)
+  const json: unknown = JSON.parse(text.replace(/^\uFEFF/, '')) // BOM from Windows tools
   const found = extractDefinition(json)
   if (!found) throw new Error('No flow definition (triggers/actions) found in this JSON')
   const flow = parseDefinition(

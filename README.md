@@ -20,6 +20,12 @@ get a zoomable flow chart of triggers, actions, conditions, switches, loops and 
   highlights those actions on the canvas.
 - Red dashed edges show error-handling paths (`runAfter` Failed/TimedOut).
 
+**Real runs:** load a run's results (**▶ Load run…**) to see which actions succeeded, failed or
+were skipped, which branches were taken, durations, error messages and actual inputs/outputs.
+The app opens at the first real failure. How to get a run file: [docs/run-export.md](docs/run-export.md)
+(a PowerShell export script, or straight from the browser). Try **Samples… → Sample flow + failed
+run**.
+
 When several flows are loaded (a solution), the **Solution** view shows:
 
 - a **map** of flows and the SharePoint lists, Dataverse tables, Excel tables, HTTP hosts,
@@ -78,10 +84,13 @@ src/
   analysis/resources.ts   lists/tables/hosts/child flows/env vars each action touches
   analysis/solution.ts    solution index (resources × flows, child-flow calls) + cross-flow search
   graph/buildSolutionGraph.ts  solution map layout
+  run/                    run file importer, run ↔ flow matching, overlay helpers
   graph/buildGraph.ts     ParsedFlow (+ collapsed set) → ELK layout → React Flow nodes/edges
   components/             FlowWorkspace (single flow), solution/ (map + search), panels, ELK worker
   samples/                sample flow + sample solution (Samples… menu and tests)
 docs/PLAN.md              roadmap and design
+docs/run-export.md        how to save a run for the overlay
+scripts/export-run.ps1    run export script (runs on your machine, your sign-in)
 ```
 
 Stack: React 19, TypeScript, Vite, [React Flow](https://reactflow.dev) (`@xyflow/react`) for the

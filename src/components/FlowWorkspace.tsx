@@ -6,6 +6,8 @@ import type { SolutionIndex } from '../analysis/solution'
 import { analyzeFlow, variableRoles } from '../analysis/variables'
 import { ancestorsOf, containersAtOrBelow, defaultCollapsed } from '../model/tree'
 import type { ParsedFlow } from '../model/types'
+import { formatDuration, matchRun, rootCauses, runClass } from '../run/overlay'
+import type { RunData } from '../run/parseRun'
 import { DetailsPanel } from './DetailsPanel'
 import { FlowCanvas, type FocusRequest } from './FlowCanvas'
 import { OutlinePanel } from './OutlinePanel'
@@ -35,10 +37,22 @@ interface Props {
     index: SolutionIndex
     onOpenFlow: (flowIndex: number, entry?: FlowEntry) => void
   }
+  /** Result of a real run to overlay on the diagram. */
+  run?: RunData
+  onOpenFiles: (files: FileList | null) => void
+  onClearRun: () => void
 }
 
 /** The single-flow view: outline/variables sidebar, diagram, details panel. */
-export function FlowWorkspace({ flow, toolbarSlot, entry, solution }: Props) {
+export function FlowWorkspace({
+  flow,
+  toolbarSlot,
+  entry,
+  solution,
+  run,
+  onOpenFiles,
+  onClearRun,
+}: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(entry?.selectId ?? null)
   const [search, setSearch] = useState(entry?.search ?? '')
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => {
@@ -87,6 +101,8 @@ export function FlowWorkspace({ flow, toolbarSlot, entry, solution }: Props) {
   }
 
   const analysis = useMemo(() => analyzeFlow(flow), [flow])
+  const overlay = useMemo(() => (run ? matchRun(flow, run) : null), [flow, run])
+  const failures = useMemo(() => (overlay ? rootCauses(flow, overlay) : []), [flow, overlay])
   const variable = selectedVariable
     ? analysis.variables.get(selectedVariable.toLowerCase())
     : undefined
@@ -189,6 +205,47 @@ export function FlowWorkspace({ flow, toolbarSlot, entry, solution }: Props) {
           </button>
         </span>
       )}
+      {overlay ? (
+        <span
+          className={`chip run-chip run-${runClass(overlay.run.status)}`}
+          title={[overlay.run.name && `Run ${overlay.run.name}`, overlay.run.error?.message]
+            .filter(Boolean)
+            .join('\n')}
+        >
+          Run <strong>{overlay.run.status ?? 'loaded'}</strong>
+          {overlay.run.startTime && (
+            <span className="muted"> · {new Date(overlay.run.startTime).toLocaleString()}</span>
+          )}
+          {overlay.run.durationMs !== undefined && (
+            <span className="muted"> · {formatDuration(overlay.run.durationMs)}</span>
+          )}
+          {failures.length > 0 && (
+            <button
+              className="link"
+              onClick={() => {
+                const i = failures.indexOf(selectedId ?? '')
+                reveal(failures[(i + 1) % failures.length])
+              }}
+              title="Jump to the first failed action (again for the next one)"
+            >
+              Go to error{failures.length > 1 ? ` (${failures.length})` : ''}
+            </button>
+          )}
+          <button onClick={onClearRun} aria-label="Remove run overlay">
+            ×
+          </button>
+        </span>
+      ) : (
+        <label className="button" title="Overlay a run's results (see docs/run-export.md)">
+          ▶ Load run…
+          <input type="file" accept=".json" hidden onChange={(e) => onOpenFiles(e.target.files)} />
+        </label>
+      )}
+      {overlay && overlay.unmatched.length > 0 && (
+        <span className="warn" title={`Not in this flow:\n${overlay.unmatched.join('\n')}`}>
+          ⚠ {overlay.unmatched.length} run step(s) not in this flow — different version?
+        </span>
+      )}
       {flow.warnings.length > 0 && (
         <span className="warn" title={flow.warnings.join('\n')}>
           ⚠ {flow.warnings.length} warning(s)
@@ -227,6 +284,7 @@ export function FlowWorkspace({ flow, toolbarSlot, entry, solution }: Props) {
               collapsed={collapsed}
               matches={matches}
               roles={roles}
+              overlay={overlay}
               selectedId={selectedId}
               onSelect={reveal}
               onToggleCollapse={toggleCollapse}
@@ -248,6 +306,7 @@ export function FlowWorkspace({ flow, toolbarSlot, entry, solution }: Props) {
           collapsed={collapsed}
           matches={matches}
           roles={roles}
+          overlay={overlay}
           selectedId={selectedId}
           focus={focus}
           onSelect={setSelectedId}
@@ -260,6 +319,8 @@ export function FlowWorkspace({ flow, toolbarSlot, entry, solution }: Props) {
           analysis={analysis}
           node={selected}
           childFlow={childFlow}
+          runResult={overlay?.byId.get(selected.id)}
+          hasRun={!!overlay}
           onNavigate={reveal}
           onSelectVariable={selectVariable}
           onClose={() => setSelectedId(null)}

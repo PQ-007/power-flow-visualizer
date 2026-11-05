@@ -11,6 +11,10 @@ Offline viewer (and, later, dry-run simulator) for Power Automate flow definitio
   so they stay unit-testable in Node. UI lives in `src/components` and `src/App.tsx`.
 - `runAfter` always references siblings in the same branch; layout relies on that.
 - Sample/fixture flows must be invented or fully sanitized (no real tenant URLs, emails, GUIDs).
+- Same for run files: exported runs contain real data. Never commit them (`/run-*.json` is
+  ignored); the sample run under `src/samples/runs` is invented.
+- `scripts/` may call Power Automate APIs (they run on the user's machine with their sign-in);
+  the app in `src/` never does.
 
 ## Before committing
 

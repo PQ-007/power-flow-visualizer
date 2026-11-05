@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { actionSummary, actionTitle } from '../model/describe'
 import { isContainer } from '../model/tree'
 import type { FlowNode, ParsedFlow } from '../model/types'
+import { runClass, type RunOverlay } from '../run/overlay'
 import { KIND_ICON } from './icons'
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
   collapsed: ReadonlySet<string>
   matches: ReadonlySet<string> | null
   roles?: ReadonlyMap<string, 'write' | 'read'> | null
+  overlay?: RunOverlay | null
   selectedId: string | null
   onSelect: (id: string) => void
   onToggleCollapse: (id: string) => void
@@ -23,6 +25,7 @@ export function OutlinePanel({
   collapsed,
   matches,
   roles,
+  overlay,
   selectedId,
   onSelect,
   onToggleCollapse,
@@ -87,6 +90,12 @@ export function OutlinePanel({
               )}
               <span className="outline-icon">{KIND_ICON[n.kind]}</span>
               <span className="outline-name">{n.displayName}</span>
+              {overlay && (
+                <span
+                  className={`run-dot run-${overlay.byId.has(n.id) ? runClass(overlay.byId.get(n.id)!.status) : 'none'}`}
+                  title={overlay.byId.get(n.id)?.status ?? 'Not in this run'}
+                />
+              )}
             </div>
             {open &&
               (multiBranch ? (

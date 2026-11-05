@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildGraph, type VisualEdge, type VisualNode } from '../graph/buildGraph'
 import { ancestorsOf } from '../model/tree'
 import type { ParsedFlow } from '../model/types'
+import { branchTaken, ran, runClass, type RunOverlay } from '../run/overlay'
 import { CanvasContext } from './canvasContext'
 import { elk } from './elk'
 import { nodeTypes } from './nodeTypes'
@@ -35,6 +36,8 @@ interface Props {
   matches: ReadonlySet<string> | null
   /** Optional read/write role per highlighted node (variable view). */
   roles?: ReadonlyMap<string, 'write' | 'read'> | null
+  /** Run results to colour the diagram with. */
+  overlay?: RunOverlay | null
   selectedId: string | null
   focus: FocusRequest | null
   onSelect: (id: string | null) => void
@@ -50,7 +53,17 @@ interface LayoutResult {
 }
 
 export function FlowCanvas(props: Props) {
-  const { flow, collapsed, matches, roles, selectedId, focus, onSelect, onToggleCollapse } = props
+  const {
+    flow,
+    collapsed,
+    matches,
+    roles,
+    overlay,
+    selectedId,
+    focus,
+    onSelect,
+    onToggleCollapse,
+  } = props
   const rf = useReactFlow()
 
   // Results are tagged with their inputs so a stale layout is never shown for new inputs.
@@ -83,17 +96,39 @@ export function FlowCanvas(props: Props) {
       }
     }
     return graph.nodes.map((n) => {
+      const classes: string[] = []
+      if (overlay) {
+        if (n.type === 'branch')
+          classes.push(branchTaken(overlay, n.data.branch) ? 'branch-taken' : 'branch-idle')
+        else {
+          const r = overlay.byId.get(n.id)
+          classes.push(r ? `run-${runClass(r.status)}` : 'run-none')
+        }
+      }
+      if (matches && n.type !== 'branch') {
+        const role = roles?.get(n.id)
+        classes.push(
+          matches.has(n.id)
+            ? `match${role ? ` role-${role}` : ''}`
+            : hiddenMatchOwners.has(n.id)
+              ? 'match-inside'
+              : 'dimmed',
+        )
+      }
       const selected = n.id === selectedId
-      if (!matches || n.type === 'branch') return selected ? { ...n, selected } : n
-      const role = roles?.get(n.id)
-      const className = matches.has(n.id)
-        ? `match${role ? ` role-${role}` : ''}`
-        : hiddenMatchOwners.has(n.id)
-          ? 'match-inside'
-          : 'dimmed'
-      return { ...n, selected, className }
+      if (!classes.length && !selected) return n
+      return { ...n, selected, className: classes.join(' ') }
     })
-  }, [graph, matches, roles, selectedId, flow, collapsed])
+  }, [graph, matches, roles, overlay, selectedId, flow, collapsed])
+
+  // With a run loaded, emphasise the path that executed and fade the rest.
+  const edges = useMemo(() => {
+    if (!graph || !overlay) return graph?.edges ?? []
+    return graph.edges.map((e) => {
+      const executed = ran(overlay, e.source) && ran(overlay, e.target)
+      return { ...e, className: `${e.className ?? ''} ${executed ? 'edge-ran' : 'edge-idle'}` }
+    })
+  }, [graph, overlay])
 
   // Move the viewport once the requested node is in the current layout.
   const handledNonce = useRef<number | null>(null)
@@ -154,7 +189,7 @@ export function FlowCanvas(props: Props) {
     <CanvasContext.Provider value={actions}>
       <ReactFlow
         nodes={nodes}
-        edges={graph.edges}
+        edges={edges}
         nodeTypes={nodeTypes}
         onNodeClick={onNodeClick}
         onPaneClick={() => onSelect(null)}

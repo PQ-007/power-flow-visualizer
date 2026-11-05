@@ -2,6 +2,8 @@ import type { Ref } from '../analysis/references'
 import type { FlowAnalysis } from '../analysis/variables'
 import { actionTitle } from '../model/describe'
 import type { FlowNode, ParsedFlow } from '../model/types'
+import { formatDuration, runClass } from '../run/overlay'
+import type { ActionRun } from '../run/parseRun'
 import { ExprContext } from './exprContext'
 import { JsonView } from './JsonView'
 
@@ -11,6 +13,10 @@ interface Props {
   node: FlowNode
   /** Set for "Run a child flow" actions whose target is known. */
   childFlow?: { name: string; open?: () => void }
+  /** This action's result in the overlaid run, if any. */
+  runResult?: ActionRun
+  /** A run is overlaid (so a missing result means "did not run"). */
+  hasRun?: boolean
   onNavigate: (id: string) => void
   onSelectVariable: (name: string) => void
   onClose: () => void
@@ -24,6 +30,8 @@ export function DetailsPanel({
   analysis,
   node,
   childFlow,
+  runResult,
+  hasRun,
   onNavigate,
   onSelectVariable,
   onClose,
@@ -150,6 +158,7 @@ export function DetailsPanel({
           </>
         )}
       </dl>
+      {hasRun && <RunSection result={runResult} />}
       {Object.keys(definition).length > 0 && (
         <>
           <h3>Definition</h3>
@@ -165,6 +174,81 @@ export function DetailsPanel({
         <pre>{JSON.stringify(stripNested(node.raw), null, 2)}</pre>
       </details>
     </aside>
+  )
+}
+
+function RunSection({ result }: { result?: ActionRun }) {
+  if (!result) {
+    return (
+      <section className="run-section">
+        <h3>This run</h3>
+        <p className="muted">
+          Not in the run — it did not execute (or the run is from another version).
+        </p>
+      </section>
+    )
+  }
+  const cls = runClass(result.status)
+  const data = (label: string, value: unknown, linked?: boolean) => {
+    if (value === undefined) {
+      return linked ? (
+        <p className="muted">
+          {label}: not included in the file (export with data, see docs/run-export.md).
+        </p>
+      ) : null
+    }
+    const size = JSON.stringify(value)?.length ?? 0
+    return (
+      <details className="run-data" open={cls === 'failed' || size < 600}>
+        <summary>
+          {label}{' '}
+          <small className="muted">
+            ({size < 1024 ? `${size} B` : `${Math.round(size / 1024)} KB`})
+          </small>
+        </summary>
+        <div className="definition">
+          <JsonView value={value} />
+        </div>
+      </details>
+    )
+  }
+  return (
+    <section className={`run-section run-${cls}`}>
+      <h3>This run</h3>
+      <dl>
+        <dt>Status</dt>
+        <dd>
+          <span className={`status-pill run-${cls}`}>{result.status}</span>
+          {result.code && result.code !== 'OK' && <small className="muted"> {result.code}</small>}
+        </dd>
+        {result.startTime && (
+          <>
+            <dt>Started</dt>
+            <dd>{new Date(result.startTime).toLocaleString()}</dd>
+          </>
+        )}
+        {result.durationMs !== undefined && (
+          <>
+            <dt>Duration</dt>
+            <dd>{formatDuration(result.durationMs)}</dd>
+          </>
+        )}
+        {result.repetitionCount !== undefined && (
+          <>
+            <dt>Repetitions</dt>
+            <dd>{result.repetitionCount}</dd>
+          </>
+        )}
+      </dl>
+      {result.error?.message && (
+        <div className="run-error">
+          {result.error.code && <strong>{result.error.code}: </strong>}
+          {result.error.message}
+        </div>
+      )}
+      {data('Inputs', result.inputs, result.inputsLinked)}
+      {data('Outputs', result.outputs, result.outputsLinked)}
+    </section>
   )
 }
 

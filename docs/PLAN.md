@@ -177,11 +177,28 @@ Remaining:
 
 ### M2.6 — Real run overlay
 
-- Load the results of a real run and colour the diagram: succeeded / failed / skipped, with each
-  action's real inputs and outputs in the details panel.
-- The app stays offline: run results come from a small PowerShell/CLI script the user runs
-  themselves (documented in the repo), then they drop the JSON into the app.
-- The simulator (M3) can reuse those real outputs as its mocks.
+Done:
+
+- ✅ Run importer (`src/run/parseRun.ts`) for the shapes people can get: the portal's run JSON
+  (`properties.actions`), the run-actions list, CLI for Microsoft 365 output, and `pfv-run/1`
+  written by `scripts/export-run.ps1`. Handles a UTF-8 BOM and Windows PowerShell 5.1 dates.
+- ✅ The run is matched to a loaded flow by flow id, else by action names (the flow on screen
+  first); run steps missing from the flow are reported ("different version?").
+- ✅ Diagram: ✓ / ✕ / – badges, failed actions and scopes in red, skipped and not-run actions
+  faded, Condition/Switch branches marked taken / not taken, executed edges emphasised.
+  Outline shows a status dot per step.
+- ✅ Lands on the first **root-cause** failure (the innermost failed action, not the scope
+  reporting it); "Go to error" cycles through failures.
+- ✅ Details panel "This run": status, code, start, duration, repetitions, error message, actual
+  inputs and outputs.
+- ✅ `scripts/export-run.ps1` + `docs/run-export.md` (script, browser DevTools, CLI for
+  Microsoft 365). The script never writes the temporary SAS download links to the file.
+
+Remaining:
+
+- Per-iteration results for actions inside loops (repetitions API) with an iteration picker.
+- Verify the script and the CLI for Microsoft 365 shape against a real tenant.
+- The simulator (M3) can reuse a run's outputs as its mocks.
 
 ### M3 — Simulator (dry run)
 
@@ -255,6 +272,6 @@ service; the deterministic summary in M2 covers most of the value).
 1. ✅ M1: collapse/expand, outline, friendly names, key inputs on cards, layout worker.
 2. ✅ M2: expression parser → clickable expressions → variables view (lineage overlay left).
 3. ✅ M2.5: solution-wide search and map.
-4. M2.6: real run overlay.
+4. ✅ M2.6: real run overlay.
 5. M3: simulator engine (reusing the expression parser and real-run outputs), then its UI.
 6. M1 leftovers, M4, M5 as needed.

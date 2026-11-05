@@ -1,0 +1,215 @@
+{
+  "format": "pfv-run/1",
+  "exportedAt": "2026-10-15T08:00:00Z",
+  "flow": {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "displayName": "Sample - Invoice approval"
+  },
+  "run": {
+    "name": "08584650120000000000000000000CU42",
+    "status": "Failed",
+    "startTime": "2026-10-14T09:12:03.000Z",
+    "endTime": "2026-10-14T12:24:06.120Z",
+    "error": {
+      "code": "Terminated",
+      "message": "Flow run terminated by a Terminate action with status Failed."
+    }
+  },
+  "trigger": {
+    "status": "Succeeded",
+    "startTime": "2026-10-14T09:12:03.000Z",
+    "endTime": "2026-10-14T09:12:03.120Z",
+    "code": "OK",
+    "outputs": {
+      "body": {
+        "ID": 42,
+        "Title": "INV-2026-0142",
+        "Amount": 25000,
+        "Author": {
+          "Email": "pat.lee@contoso.com"
+        },
+        "Watchers": [
+          {
+            "Email": "sam.ng@contoso.com"
+          }
+        ],
+        "Status": "Pending"
+      }
+    },
+    "name": "When_an_item_is_created"
+  },
+  "actions": {
+    "Initialize_ApprovalStatus": {
+      "status": "Succeeded",
+      "startTime": "2026-10-14T09:12:03.160Z",
+      "endTime": "2026-10-14T09:12:03.175Z",
+      "code": "OK",
+      "inputs": {
+        "variables": [
+          {
+            "name": "ApprovalStatus",
+            "type": "string",
+            "value": "Pending"
+          }
+        ]
+      }
+    },
+    "Get_approver": {
+      "status": "Succeeded",
+      "startTime": "2026-10-14T09:12:03.215Z",
+      "endTime": "2026-10-14T09:12:03.855Z",
+      "code": "OK",
+      "inputs": {
+        "id": "pat.lee@contoso.com"
+      },
+      "outputs": {
+        "statusCode": 200,
+        "body": {
+          "displayName": "Robin Diaz",
+          "mail": "robin.diaz@contoso.com"
+        }
+      }
+    },
+    "Start_and_wait_for_an_approval": {
+      "status": "Succeeded",
+      "startTime": "2026-10-14T09:12:03.895Z",
+      "endTime": "2026-10-14T12:24:03.895Z",
+      "code": "OK",
+      "inputs": {
+        "approvalType": "Basic",
+        "title": "Approve invoice INV-2026-0142",
+        "assignedTo": "robin.diaz@contoso.com"
+      },
+      "outputs": {
+        "statusCode": 200,
+        "body": {
+          "outcome": "Reject",
+          "responses": [
+            {
+              "responder": {
+                "displayName": "Robin Diaz"
+              },
+              "comments": "Duplicate of INV-2026-0139"
+            }
+          ]
+        }
+      }
+    },
+    "Set_status_Approved": {
+      "status": "Skipped",
+      "startTime": "2026-10-14T12:24:03.935Z",
+      "endTime": "2026-10-14T12:24:03.935Z",
+      "code": "ActionSkipped"
+    },
+    "Set_status_Rejected": {
+      "status": "Succeeded",
+      "startTime": "2026-10-14T12:24:03.975Z",
+      "endTime": "2026-10-14T12:24:03.995Z",
+      "code": "OK",
+      "inputs": {
+        "name": "ApprovalStatus",
+        "value": "Rejected"
+      }
+    },
+    "Switch_on_outcome": {
+      "status": "Succeeded",
+      "startTime": "2026-10-14T12:24:04.035Z",
+      "endTime": "2026-10-14T12:24:04.060Z",
+      "code": "OK",
+      "inputs": {
+        "expressionResult": "Reject"
+      }
+    },
+    "Auto_approve": {
+      "status": "Skipped",
+      "startTime": "2026-10-14T12:24:04.100Z",
+      "endTime": "2026-10-14T12:24:04.100Z",
+      "code": "ActionSkipped"
+    },
+    "Check_amount": {
+      "status": "Succeeded",
+      "startTime": "2026-10-14T12:24:04.140Z",
+      "endTime": "2026-10-14T12:24:04.170Z",
+      "code": "OK",
+      "inputs": {
+        "expressionResult": true
+      }
+    },
+    "Update_item": {
+      "status": "Failed",
+      "startTime": "2026-10-14T12:24:04.210Z",
+      "endTime": "2026-10-14T12:24:05.030Z",
+      "code": "NotFound",
+      "inputs": {
+        "method": "patch",
+        "path": "/datasets/https%3A%2F%2Fcontoso.sharepoint.com%2Fsites%2Ffinance/tables/Invoices/items/42",
+        "body": {
+          "Status": "Rejected"
+        }
+      },
+      "outputs": {
+        "statusCode": 404,
+        "body": {
+          "status": 404,
+          "message": "Item does not exist. It may have been deleted by another user.\r\nclientRequestId: 6b1d0c4e-0000-4000-8000-000000000000",
+          "source": "https://contoso.sharepoint.com/sites/finance/_api/web/lists/GetByTitle('Invoices')/items(42)"
+        }
+      },
+      "error": {
+        "code": "NotFound",
+        "message": "Item does not exist. It may have been deleted by another user."
+      }
+    },
+    "Try": {
+      "status": "Failed",
+      "startTime": "2026-10-14T12:24:05.070Z",
+      "endTime": "2026-10-14T12:24:05.120Z",
+      "code": "ActionFailed",
+      "error": {
+        "code": "ActionFailed",
+        "message": "An action failed. No dependent actions succeeded."
+      }
+    },
+    "Notify_admins": {
+      "status": "Succeeded",
+      "startTime": "2026-10-14T12:24:05.160Z",
+      "endTime": "2026-10-14T12:24:06.070Z",
+      "code": "OK",
+      "inputs": {
+        "emailMessage/To": "flow-admins@contoso.com",
+        "emailMessage/Subject": "Invoice approval failed",
+        "emailMessage/Body": "Invoice INV-2026-0142 failed: Item does not exist. It may have been deleted by another user."
+      },
+      "outputs": {
+        "statusCode": 200
+      }
+    },
+    "Terminate": {
+      "status": "Succeeded",
+      "startTime": "2026-10-14T12:24:06.110Z",
+      "endTime": "2026-10-14T12:24:06.120Z",
+      "code": "OK",
+      "inputs": {
+        "runStatus": "Failed"
+      }
+    },
+    "Catch": {
+      "status": "Succeeded",
+      "startTime": "2026-10-14T12:24:06.160Z",
+      "endTime": "2026-10-14T12:24:06.165Z",
+      "code": "OK"
+    },
+    "Notify_each_watcher": {
+      "status": "Skipped",
+      "startTime": "2026-10-14T12:24:06.205Z",
+      "endTime": "2026-10-14T12:24:06.205Z",
+      "code": "ActionSkipped"
+    },
+    "Post_message_in_Teams": {
+      "status": "Skipped",
+      "startTime": "2026-10-14T12:24:06.245Z",
+      "endTime": "2026-10-14T12:24:06.245Z",
+      "code": "ActionSkipped"
+    }
+  }
+}

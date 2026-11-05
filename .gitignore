@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Exported flow runs contain real data (see docs/run-export.md)
+/run-*.json

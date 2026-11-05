@@ -937,3 +937,148 @@ button.primary {
   border-color: var(--condition);
   border-top-style: dashed;
 }
+
+/* Run overlay */
+.react-flow__node.run-succeeded .card {
+  border-left-color: var(--yes);
+}
+.react-flow__node.run-failed .card,
+.react-flow__node.run-failed .container {
+  border-color: var(--no);
+  background: color-mix(in srgb, var(--no) 8%, var(--surface));
+}
+.react-flow__node.run-failed .card {
+  border-left-color: var(--no);
+}
+.react-flow__node.run-skipped,
+.react-flow__node.run-none {
+  opacity: 0.4;
+}
+.react-flow__node.run-succeeded::after,
+.react-flow__node.run-failed::after,
+.react-flow__node.run-skipped::after,
+.react-flow__node.run-running::after {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  z-index: 5;
+  pointer-events: none;
+}
+.react-flow__node.run-succeeded::after {
+  content: '✓';
+  background: var(--yes);
+}
+.react-flow__node.run-failed::after {
+  content: '✕';
+  background: var(--no);
+}
+.react-flow__node.run-skipped::after {
+  content: '–';
+  background: var(--muted);
+}
+.react-flow__node.run-running::after {
+  content: '…';
+  background: var(--loop);
+}
+.react-flow__node.branch-idle {
+  opacity: 0.45;
+}
+.react-flow__node.branch-idle .branch-header::after {
+  content: ' · not taken';
+  font-weight: normal;
+  color: var(--muted);
+}
+.react-flow__node.branch-taken .branch-header::after {
+  content: ' · taken';
+  font-weight: normal;
+}
+.react-flow__edge.edge-ran path {
+  stroke-width: 2.5;
+  stroke: var(--yes);
+}
+.react-flow__edge.edge-ran.edge-abnormal path {
+  stroke: var(--no);
+}
+.react-flow__edge.edge-idle {
+  opacity: 0.3;
+}
+
+.run-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: auto;
+  background: var(--border);
+}
+.run-dot.run-succeeded {
+  background: var(--yes);
+}
+.run-dot.run-failed {
+  background: var(--no);
+}
+.run-dot.run-running {
+  background: var(--loop);
+}
+.run-chip.run-failed {
+  background: color-mix(in srgb, var(--no) 14%, transparent);
+}
+.run-chip.run-succeeded {
+  background: color-mix(in srgb, var(--yes) 14%, transparent);
+}
+.toolbar .run-chip .link {
+  border: none;
+  padding: 0 4px;
+  color: var(--accent);
+}
+.run-section {
+  margin: 12px 0;
+  padding: 4px 12px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.run-section.run-failed {
+  border-color: color-mix(in srgb, var(--no) 50%, var(--border));
+}
+.run-section h3 {
+  margin: 8px 0 4px;
+}
+.status-pill {
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+}
+.status-pill.run-succeeded {
+  color: var(--yes);
+  background: color-mix(in srgb, var(--yes) 14%, transparent);
+}
+.status-pill.run-failed {
+  color: var(--no);
+  background: color-mix(in srgb, var(--no) 14%, transparent);
+}
+.run-error {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--no);
+  background: color-mix(in srgb, var(--no) 8%, transparent);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.run-data {
+  margin: 6px 0;
+}
+.run-data summary {
+  cursor: pointer;
+  font-weight: 600;
+}

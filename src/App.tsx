@@ -4,6 +4,9 @@ import { FlowWorkspace, type FlowEntry } from './components/FlowWorkspace'
 import { SolutionWorkspace } from './components/solution/SolutionWorkspace'
 import type { ParsedFlow } from './model/types'
 import { loadFlowFromJson, loadFlowsFromEntries, loadFlowsFromFiles } from './parser/loadFlow'
+import { pickFlowForRun } from './run/attach'
+import { matchRun, rootCauses } from './run/overlay'
+import { loadRunFromText, parseRun, type RunData } from './run/parseRun'
 
 type View = { kind: 'solution' } | { kind: 'flow'; index: number; entry?: FlowEntry; nonce: number }
 
@@ -13,20 +16,73 @@ export default function App() {
   const [loadId, setLoadId] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null)
+  /** Run results overlaid on flows, by flow index. */
+  const [runs, setRuns] = useState<Record<number, RunData>>({})
 
   const show = (list: ParsedFlow[]) => {
     setFlows(list)
+    setRuns({})
     setLoadId((n) => n + 1)
     setView(list.length > 1 ? { kind: 'solution' } : { kind: 'flow', index: 0, nonce: 0 })
     setError(null)
   }
 
+  /**
+   * Attaches runs to flows (the newly loaded `list`, or the flows already open) and shows the
+   * flow of the last one, landing on its first failure.
+   */
+  const attachRuns = (list: ParsedFlow[], loaded: RunData[], fresh: boolean) => {
+    if (list.length === 0) {
+      setError('Open the flow (or its solution) first, then load its run.')
+      return
+    }
+    const current = !fresh && view.kind === 'flow' ? view.index : list.length === 1 ? 0 : undefined
+    const next: Record<number, RunData> = fresh ? {} : { ...runs }
+    let target: number | undefined
+    const misses: string[] = []
+    for (const run of loaded) {
+      const i = pickFlowForRun(list, run, current)
+      if (i === undefined) misses.push(run.flowName ?? run.name ?? 'run')
+      else {
+        next[i] = run
+        target = i
+      }
+    }
+    if (fresh) {
+      setFlows(list)
+      setLoadId((n) => n + 1)
+    }
+    setRuns(next)
+    setError(
+      misses.length
+        ? `Couldn't match ${misses.join(', ')} to a loaded flow (different flow or version?)`
+        : null,
+    )
+    if (target !== undefined) {
+      const flow = list[target]
+      const firstFailure = rootCauses(flow, matchRun(flow, next[target]))[0]
+      openFlow(target, firstFailure ? { selectId: firstFailure } : undefined)
+    } else if (fresh) {
+      setView(list.length > 1 ? { kind: 'solution' } : { kind: 'flow', index: 0, nonce: 0 })
+    }
+  }
+
   const open = async (files: FileList | null) => {
     if (!files?.length) return
     try {
-      const loaded = await loadFlowsFromFiles([...files])
-      if (loaded.length === 0) throw new Error('No flows found')
-      show(loaded)
+      // Run files are JSON too: tell them apart from flow definitions by content.
+      const runFiles: RunData[] = []
+      const flowFiles: File[] = []
+      for (const f of files) {
+        const run =
+          !f.webkitRelativePath && /\.json$/i.test(f.name) ? loadRunFromText(await f.text()) : null
+        if (run) runFiles.push(run)
+        else flowFiles.push(f)
+      }
+      const loaded = flowFiles.length ? await loadFlowsFromFiles(flowFiles) : null
+      if (loaded && loaded.length === 0) throw new Error('No flows found')
+      if (runFiles.length) attachRuns(loaded ?? flows, runFiles, !!loaded)
+      else if (loaded) show(loaded)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -37,6 +93,10 @@ export default function App() {
     if (which === 'flow') {
       const sample = (await import('./samples/invoice-approval.json')).default
       show([loadFlowFromJson(JSON.stringify(sample))])
+    } else if (which === 'flow-run') {
+      const sample = (await import('./samples/invoice-approval.json')).default
+      const run = (await import('./samples/runs/invoice-approval-failed-run.json')).default
+      attachRuns([loadFlowFromJson(JSON.stringify(sample))], [parseRun(run)!], true)
     } else if (which === 'solution') {
       const { sampleSolutionEntries } = await import('./samples/solution')
       show(loadFlowsFromEntries(sampleSolutionEntries))
@@ -101,6 +161,7 @@ export default function App() {
             Samples…
           </option>
           <option value="flow">Sample flow</option>
+          <option value="flow-run">Sample flow + failed run</option>
           <option value="solution">Sample solution (5 flows)</option>
         </select>
         {index && (
@@ -140,6 +201,12 @@ export default function App() {
             entry={view.entry}
             toolbarSlot={toolbarSlot}
             solution={solution}
+            run={runs[view.index]}
+            onOpenFiles={open}
+            onClearRun={() => {
+              const i = view.index
+              setRuns(({ [i]: _removed, ...rest }) => rest)
+            }}
           />
         ) : index ? (
           <SolutionWorkspace
