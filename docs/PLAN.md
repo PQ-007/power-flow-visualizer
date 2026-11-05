@@ -147,11 +147,33 @@ Remaining:
 
 ### M2.5 — Solution-wide view (many flows by many people)
 
-- Load a whole solution (zip, or an unpacked `pac solution unpack` folder) and search across
-  every flow at once: "which flows write to SharePoint list _Invoices_?", "who uses connection
-  reference X?", "who calls child flow Y?".
-- **Solution map**: flows as boxes, child-flow calls as arrows, plus the lists, tables and
-  mailboxes each flow reads or writes. Click a flow to open its diagram.
+Done:
+
+- ✅ Load a whole solution: solution `.zip`, unpacked `pac solution unpack` folder ("Open folder"),
+  or several files at once. Flow names and ids come from `customizations.xml` (falls back to the
+  file name without its GUID); connection references from each workflow JSON.
+- ✅ **Resources** each action touches (`src/analysis/resources.ts`): SharePoint lists/libraries
+  (GUIDs resolved to names through action metadata), Dataverse tables, Excel tables, SQL tables,
+  literal mailboxes, HTTP hosts, child flows, connection references, environment variables.
+  Access is classified as triggers / reads / writes / calls / uses from the trigger role and
+  operation id.
+- ✅ **Search across every flow** (action names, connectors, inputs, expressions) plus flow and
+  resource names. Results list matching actions per flow; clicking one opens that flow at the
+  action with the search kept.
+- ✅ **Solution map**: flows and resources as boxes, edges coloured by access (reads, writes,
+  triggers, calls child flow), resource kinds toggleable (connection references hidden by
+  default). Selecting a node highlights its neighbours; double-click opens a flow.
+- ✅ Details: per flow (trigger, steps, file, calls / called by, resources with access); per
+  resource (every action using it, grouped by flow, each opening the flow at that action).
+- ✅ "Run a child flow" actions link to the child flow when it's in the loaded set.
+- ✅ Invented sample solution (5 flows) under `src/samples/solution`, loaded through the same
+  code path as a real export.
+
+Remaining:
+
+- More connectors in the resource extractor (Teams channels, Planner plans, OneDrive files,
+  Forms) as real flows show which matter.
+- Group the map by resource when it gets crowded (e.g. 50+ flows).
 
 ### M2.6 — Real run overlay
 
@@ -232,7 +254,7 @@ service; the deterministic summary in M2 covers most of the value).
 
 1. ✅ M1: collapse/expand, outline, friendly names, key inputs on cards, layout worker.
 2. ✅ M2: expression parser → clickable expressions → variables view (lineage overlay left).
-3. M2.5: solution-wide search and map.
+3. ✅ M2.5: solution-wide search and map.
 4. M2.6: real run overlay.
 5. M3: simulator engine (reusing the expression parser and real-run outputs), then its UI.
 6. M1 leftovers, M4, M5 as needed.

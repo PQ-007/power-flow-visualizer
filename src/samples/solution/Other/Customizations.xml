@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Workflows>
+    <Workflow WorkflowId="{1a2b3c4d-0001-4000-8000-00000000a001}" Name="Invoice approval">
+      <JsonFileName>/Workflows/InvoiceApproval-1A2B3C4D-0001-4000-8000-00000000A001.json</JsonFileName>
+      <Type>1</Type>
+      <Category>5</Category>
+    </Workflow>
+    <Workflow WorkflowId="{1a2b3c4d-0002-4000-8000-00000000a002}" Name="Archive paid invoices">
+      <JsonFileName>/Workflows/ArchivePaidInvoices-1A2B3C4D-0002-4000-8000-00000000A002.json</JsonFileName>
+      <Type>1</Type>
+      <Category>5</Category>
+    </Workflow>
+    <Workflow WorkflowId="{1a2b3c4d-0003-4000-8000-00000000a003}" Name="Write audit entry (child)">
+      <JsonFileName>/Workflows/WriteAuditEntry-1A2B3C4D-0003-4000-8000-00000000A003.json</JsonFileName>
+      <Type>1</Type>
+      <Category>5</Category>
+    </Workflow>
+    <Workflow WorkflowId="{1a2b3c4d-0004-4000-8000-00000000a004}" Name="Sync vendors from ERP">
+      <JsonFileName>/Workflows/SyncVendorsFromERP-1A2B3C4D-0004-4000-8000-00000000A004.json</JsonFileName>
+      <Type>1</Type>
+      <Category>5</Category>
+    </Workflow>
+    <Workflow WorkflowId="{1a2b3c4d-0005-4000-8000-00000000a005}" Name="Invoice reminder">
+      <JsonFileName>/Workflows/InvoiceReminder-1A2B3C4D-0005-4000-8000-00000000A005.json</JsonFileName>
+      <Type>1</Type>
+      <Category>5</Category>
+    </Workflow>
+  </Workflows>
+</ImportExportXml>

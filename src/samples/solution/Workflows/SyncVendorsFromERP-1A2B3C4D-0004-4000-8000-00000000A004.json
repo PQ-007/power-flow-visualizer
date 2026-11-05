@@ -1,0 +1,193 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "new_sharedcommondataserviceforapps_finance"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "new_sharedsharepointonline_finance"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "new_sharedexcelonlinebusiness_finance"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "ERP API key (new_ERPApiKey)": {
+          "defaultValue": "",
+          "type": "String",
+          "metadata": {
+            "schemaName": "new_ERPApiKey"
+          }
+        }
+      },
+      "triggers": {
+        "When_a_vendor_changes": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "SubscribeWebhookTrigger"
+            },
+            "parameters": {
+              "subscriptionRequest/message": 3,
+              "subscriptionRequest/entityname": "new_vendor",
+              "subscriptionRequest/scope": 4
+            }
+          }
+        }
+      },
+      "actions": {
+        "Get_ERP_record": {
+          "type": "Http",
+          "runAfter": {},
+          "inputs": {
+            "method": "GET",
+            "uri": "https://erp.example.com/api/vendors/@{triggerOutputs()?['body/new_erpid']}",
+            "authentication": {
+              "type": "Raw",
+              "value": "@parameters('ERP API key (new_ERPApiKey)')"
+            }
+          }
+        },
+        "Parse_ERP_record": {
+          "type": "ParseJson",
+          "runAfter": {
+            "Get_ERP_record": ["Succeeded"]
+          },
+          "inputs": {
+            "content": "@body('Get_ERP_record')",
+            "schema": {
+              "type": "object"
+            }
+          }
+        },
+        "Find_vendor_in_list": {
+          "type": "OpenApiConnection",
+          "runAfter": {
+            "Parse_ERP_record": ["Succeeded"]
+          },
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems"
+            },
+            "parameters": {
+              "dataset": "https://contoso.sharepoint.com/sites/finance",
+              "table": "Vendors",
+              "$filter": "ErpId eq '@{body('Parse_ERP_record')?['id']}'"
+            }
+          }
+        },
+        "Vendor_exists": {
+          "type": "If",
+          "runAfter": {
+            "Find_vendor_in_list": ["Succeeded"]
+          },
+          "expression": {
+            "greater": ["@length(outputs('Find_vendor_in_list')?['body/value'])", 0]
+          },
+          "actions": {
+            "Update_vendor": {
+              "type": "OpenApiConnection",
+              "runAfter": {},
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "PatchItem"
+                },
+                "parameters": {
+                  "dataset": "https://contoso.sharepoint.com/sites/finance",
+                  "table": "Vendors",
+                  "id": "@first(outputs('Find_vendor_in_list')?['body/value'])?['ID']",
+                  "item/Name": "@body('Parse_ERP_record')?['name']"
+                }
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Create_vendor": {
+                "type": "OpenApiConnection",
+                "runAfter": {},
+                "inputs": {
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "PostItem"
+                  },
+                  "parameters": {
+                    "dataset": "https://contoso.sharepoint.com/sites/finance",
+                    "table": "Vendors",
+                    "item/Title": "@body('Parse_ERP_record')?['name']",
+                    "item/ErpId": "@body('Parse_ERP_record')?['id']"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Log_change_to_Excel": {
+          "type": "OpenApiConnection",
+          "runAfter": {
+            "Vendor_exists": ["Succeeded"]
+          },
+          "metadata": {
+            "01FINANCEFILEID": "/Finance/VendorChanges.xlsx",
+            "{8B0C}": "Changes"
+          },
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+              "connectionName": "shared_excelonlinebusiness",
+              "operationId": "AddRowV2"
+            },
+            "parameters": {
+              "source": "groups/finance",
+              "drive": "b!finance",
+              "file": "01FINANCEFILEID",
+              "table": "{8B0C}",
+              "item": {
+                "Vendor": "@body('Parse_ERP_record')?['name']",
+                "When": "@utcNow()"
+              }
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

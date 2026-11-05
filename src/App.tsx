@@ -1,143 +1,66 @@
-import { ReactFlowProvider } from '@xyflow/react'
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
-import { findMatches } from './analysis/search'
-import { analyzeFlow, variableRoles } from './analysis/variables'
-import { DetailsPanel } from './components/DetailsPanel'
-import { FlowCanvas, type FocusRequest } from './components/FlowCanvas'
-import { OutlinePanel } from './components/OutlinePanel'
-import { VariablesPanel } from './components/VariablesPanel'
-import { ancestorsOf, containersAtOrBelow, defaultCollapsed } from './model/tree'
+import { useCallback, useMemo, useState, type DragEvent } from 'react'
+import { buildSolutionIndex } from './analysis/solution'
+import { FlowWorkspace, type FlowEntry } from './components/FlowWorkspace'
+import { SolutionWorkspace } from './components/solution/SolutionWorkspace'
 import type { ParsedFlow } from './model/types'
-import { loadFlowFromJson, loadFlowsFromFile } from './parser/loadFlow'
-import sample from './samples/invoice-approval.json'
+import { loadFlowFromJson, loadFlowsFromEntries, loadFlowsFromFiles } from './parser/loadFlow'
 
-/** "Show" levels: how many container levels are open. */
-const LEVELS = [
-  { value: '0', label: 'Top level only' },
-  { value: '1', label: '2 levels' },
-  { value: '2', label: '3 levels' },
-  { value: 'all', label: 'Everything' },
-]
+type View = { kind: 'solution' } | { kind: 'flow'; index: number; entry?: FlowEntry; nonce: number }
 
 export default function App() {
   const [flows, setFlows] = useState<ParsedFlow[]>([])
-  const [active, setActive] = useState(0)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
-  const [level, setLevel] = useState('')
-  const [focus, setFocus] = useState<FocusRequest | null>(null)
-  const [showSidebar, setShowSidebar] = useState(true)
-  const [sidebarTab, setSidebarTab] = useState<'outline' | 'variables'>('outline')
-  const [selectedVariable, setSelectedVariable] = useState<string | null>(null)
+  const [view, setView] = useState<View>({ kind: 'solution' })
+  const [loadId, setLoadId] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const searchRef = useRef<HTMLInputElement>(null)
-  const nonce = useRef(0)
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null)
 
-  const flow = flows[active] as ParsedFlow | undefined
-
-  const showFlow = useCallback((list: ParsedFlow[], index: number) => {
+  const show = (list: ParsedFlow[]) => {
     setFlows(list)
-    setActive(index)
-    setSelectedId(null)
-    setSelectedVariable(null)
-    setFocus(null)
-    setCollapsed(list[index] ? defaultCollapsed(list[index]) : new Set())
-    setLevel('')
+    setLoadId((n) => n + 1)
+    setView(list.length > 1 ? { kind: 'solution' } : { kind: 'flow', index: 0, nonce: 0 })
     setError(null)
-  }, [])
+  }
 
   const open = async (files: FileList | null) => {
     if (!files?.length) return
     try {
-      showFlow((await Promise.all([...files].map(loadFlowsFromFile))).flat(), 0)
+      const loaded = await loadFlowsFromFiles([...files])
+      if (loaded.length === 0) throw new Error('No flows found')
+      show(loaded)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
   }
 
-  const requestFocus = (id: string, mode: FocusRequest['mode']) =>
-    setFocus({ id, mode, nonce: ++nonce.current })
-
-  /** Select a node, expanding its containers and moving the canvas to it. */
-  const reveal = (id: string) => {
-    if (!flow) return
-    const hiddenBy = ancestorsOf(flow, id).filter((a) => collapsed.has(a))
-    if (hiddenBy.length) {
-      setCollapsed((prev) => new Set([...prev].filter((c) => !hiddenBy.includes(c))))
-      setLevel('')
+  // Samples are loaded on demand so they don't weigh on the main bundle.
+  const loadSample = async (which: string) => {
+    if (which === 'flow') {
+      const sample = (await import('./samples/invoice-approval.json')).default
+      show([loadFlowFromJson(JSON.stringify(sample))])
+    } else if (which === 'solution') {
+      const { sampleSolutionEntries } = await import('./samples/solution')
+      show(loadFlowsFromEntries(sampleSolutionEntries))
     }
-    setSelectedId(id)
-    requestFocus(id, 'zoom')
   }
 
-  const toggleCollapse = useCallback((id: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (!next.delete(id)) next.add(id)
-      return next
-    })
-    setLevel('')
-    setFocus({ id, mode: 'center', nonce: ++nonce.current })
-  }, [])
+  const index = useMemo(() => (flows.length > 1 ? buildSolutionIndex(flows) : null), [flows])
 
-  const changeLevel = (value: string) => {
-    if (!flow) return
-    setLevel(value)
-    setCollapsed(value === 'all' ? new Set() : containersAtOrBelow(flow, Number(value)))
-    requestFocus('', 'fit')
-  }
-
-  const analysis = useMemo(() => (flow ? analyzeFlow(flow) : null), [flow])
-  const variable = selectedVariable
-    ? analysis?.variables.get(selectedVariable.toLowerCase())
-    : undefined
-  const roles = useMemo(() => (variable ? variableRoles(variable) : null), [variable])
-
-  // Highlighted set: the selected variable's actions, otherwise the search matches.
-  const searchMatches = useMemo(
-    () => (flow && search.trim() ? findMatches(flow, search) : null),
-    [flow, search],
+  const openFlow = useCallback(
+    (i: number, entry?: FlowEntry) =>
+      setView((v) => ({
+        kind: 'flow',
+        index: i,
+        entry,
+        nonce: (v.kind === 'flow' ? v.nonce : 0) + 1,
+      })),
+    [],
   )
-  const matches = useMemo(
-    () => (roles ? new Set(roles.keys()) : searchMatches),
-    [roles, searchMatches],
+  const solution = useMemo(
+    () => (index ? { index, onOpenFlow: openFlow } : undefined),
+    [index, openFlow],
   )
 
-  const selectVariable = (name: string | null) => {
-    setSelectedVariable(name)
-    const info = name ? analysis?.variables.get(name.toLowerCase()) : undefined
-    if (info) {
-      setSearch('')
-      setSidebarTab('variables')
-      setShowSidebar(true)
-      setFocus({
-        id: '',
-        mode: 'fitMany',
-        ids: [...variableRoles(info).keys()],
-        nonce: ++nonce.current,
-      })
-    }
-  }
-
-  // "/" focuses search, Esc clears search or selection.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
-      if (e.key === '/' && !typing) {
-        e.preventDefault()
-        searchRef.current?.focus()
-      } else if (e.key === 'Escape') {
-        if (typing && search) setSearch('')
-        else if (selectedVariable) setSelectedVariable(null)
-        else setSelectedId(null)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [search, selectedVariable])
-
-  const selected = selectedId ? flow?.byId.get(selectedId) : undefined
+  const activeFlow = view.kind === 'flow' ? flows[view.index] : undefined
 
   return (
     <div
@@ -150,8 +73,8 @@ export default function App() {
     >
       <header className="toolbar">
         <strong>Power Flow Visualizer</strong>
-        <label className="button">
-          Open .zip / .json
+        <label className="button" title="Flow package, solution .zip or flow definition .json">
+          Open file
           <input
             type="file"
             accept=".zip,.json"
@@ -160,144 +83,77 @@ export default function App() {
             onChange={(e) => open(e.target.files)}
           />
         </label>
-        <button onClick={() => showFlow([loadFlowFromJson(JSON.stringify(sample))], 0)}>
-          Load sample
-        </button>
-        {flows.length > 1 && (
-          <select
-            value={active}
-            onChange={(e) => showFlow(flows, Number(e.target.value))}
-            aria-label="Flow"
-          >
-            {flows.map((f, i) => (
-              <option key={i} value={i}>
-                {f.displayName}
-              </option>
-            ))}
-          </select>
-        )}
-        {flow && (
+        <label className="button" title="An unpacked solution folder (pac solution unpack)">
+          Open folder
+          <input
+            type="file"
+            hidden
+            ref={(el) => el?.setAttribute('webkitdirectory', '')}
+            onChange={(e) => open(e.target.files)}
+          />
+        </label>
+        <select
+          value=""
+          aria-label="Load a sample"
+          onChange={(e) => void loadSample(e.target.value)}
+        >
+          <option value="" disabled>
+            Samples…
+          </option>
+          <option value="flow">Sample flow</option>
+          <option value="solution">Sample solution (5 flows)</option>
+        </select>
+        {index && (
           <>
+            <span className="divider" />
             <button
-              onClick={() => setShowSidebar((v) => !v)}
-              aria-pressed={showSidebar}
-              title="Toggle side panel"
+              aria-pressed={view.kind === 'solution'}
+              onClick={() => setView({ kind: 'solution' })}
+              title="Map and search across all flows"
             >
-              ☰ Panel
+              ◫ Solution
             </button>
-            <select value={level} onChange={(e) => changeLevel(e.target.value)} aria-label="Show">
+            <select
+              aria-label="Flow"
+              value={view.kind === 'flow' ? view.index : ''}
+              onChange={(e) => openFlow(Number(e.target.value))}
+            >
               <option value="" disabled>
-                Show…
+                Open flow…
               </option>
-              {LEVELS.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
+              {flows.map((f, i) => (
+                <option key={i} value={i}>
+                  {f.displayName}
                 </option>
               ))}
             </select>
-            <input
-              ref={searchRef}
-              className="search"
-              placeholder="Search actions, connectors, expressions…  ( / )"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setSelectedVariable(null)
-              }}
-            />
-            {searchMatches && (
-              <span className="muted">
-                {searchMatches.size} match{searchMatches.size === 1 ? '' : 'es'}
-              </span>
-            )}
-            {variable && (
-              <span className="chip">
-                Variable <strong>{variable.name}</strong>
-                <button onClick={() => setSelectedVariable(null)} aria-label="Clear variable">
-                  ×
-                </button>
-              </span>
-            )}
-            {flow.warnings.length > 0 && (
-              <span className="warn" title={flow.warnings.join('\n')}>
-                ⚠ {flow.warnings.length} warning(s)
-              </span>
-            )}
           </>
         )}
+        <span className="toolbar-slot" ref={setToolbarSlot} />
       </header>
       {error && <div className="error">{error}</div>}
       <main>
-        {flow ? (
-          <ReactFlowProvider key={`${active}:${flow.displayName}:${flows.length}`}>
-            {showSidebar && analysis && (
-              <aside className="sidebar">
-                <div className="tabs" role="tablist">
-                  <button
-                    role="tab"
-                    aria-selected={sidebarTab === 'outline'}
-                    onClick={() => setSidebarTab('outline')}
-                  >
-                    Outline <small>{flow.byId.size}</small>
-                  </button>
-                  <button
-                    role="tab"
-                    aria-selected={sidebarTab === 'variables'}
-                    onClick={() => setSidebarTab('variables')}
-                  >
-                    Variables <small>{analysis.variables.size}</small>
-                    {[...analysis.variables.values()].some((v) => v.warnings.length) && (
-                      <span className="warn"> ⚠</span>
-                    )}
-                  </button>
-                </div>
-                {sidebarTab === 'outline' ? (
-                  <OutlinePanel
-                    flow={flow}
-                    collapsed={collapsed}
-                    matches={matches}
-                    roles={roles}
-                    selectedId={selectedId}
-                    onSelect={reveal}
-                    onToggleCollapse={toggleCollapse}
-                  />
-                ) : (
-                  <VariablesPanel
-                    flow={flow}
-                    analysis={analysis}
-                    selected={selectedVariable}
-                    onSelectVariable={selectVariable}
-                    onNavigate={reveal}
-                  />
-                )}
-              </aside>
-            )}
-            <div className="canvas">
-              <FlowCanvas
-                flow={flow}
-                collapsed={collapsed}
-                matches={matches}
-                roles={roles}
-                selectedId={selectedId}
-                focus={focus}
-                onSelect={setSelectedId}
-                onToggleCollapse={toggleCollapse}
-              />
-            </div>
-            {selected && analysis && (
-              <DetailsPanel
-                flow={flow}
-                analysis={analysis}
-                node={selected}
-                onNavigate={reveal}
-                onSelectVariable={selectVariable}
-                onClose={() => setSelectedId(null)}
-              />
-            )}
-          </ReactFlowProvider>
+        {view.kind === 'flow' && activeFlow ? (
+          <FlowWorkspace
+            key={`${loadId}:${view.index}:${view.nonce}`}
+            flow={activeFlow}
+            entry={view.entry}
+            toolbarSlot={toolbarSlot}
+            solution={solution}
+          />
+        ) : index ? (
+          <SolutionWorkspace
+            key={loadId}
+            index={index}
+            toolbarSlot={toolbarSlot}
+            onOpenFlow={openFlow}
+          />
         ) : (
           <div className="empty">
-            <p>Drop a Power Automate export (.zip) or flow definition (.json) here.</p>
+            <p>
+              Drop a Power Automate export (.zip), a solution .zip or a flow definition (.json)
+              here, or open an unpacked solution folder.
+            </p>
             <p>Files are read locally in your browser — nothing is uploaded.</p>
           </div>
         )}

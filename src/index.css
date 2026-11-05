@@ -721,3 +721,219 @@ details.raw summary {
   cursor: pointer;
   color: var(--muted);
 }
+
+/* App toolbar: the active view renders its controls into .toolbar-slot */
+.toolbar-slot {
+  display: contents;
+}
+.divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 0 4px;
+}
+button.primary {
+  font: inherit;
+  margin: 8px 0 4px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+/* Solution lists */
+.solution-list {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 0 12px;
+}
+.solution-list h4 {
+  margin: 10px 12px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.list-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 12px;
+  font: inherit;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  min-width: 0;
+}
+.list-row > * {
+  min-width: 0;
+}
+.list-row .var-name,
+.list-row .outline-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list-row .var-counts {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-row:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.list-row.selected {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.result-action {
+  padding-left: 28px;
+  font-size: 12px;
+}
+.kind-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 12px 2px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+.kind-badge {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 15%, transparent);
+}
+.use-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 3px 0 3px 10px;
+}
+.details .use-row .kind-badge {
+  margin-left: -10px;
+}
+.access {
+  font-size: 11px;
+  padding: 0 6px;
+  border-radius: 8px;
+}
+.access-write {
+  color: var(--write);
+  background: color-mix(in srgb, var(--write) 14%, transparent);
+}
+.access-read,
+.access-use {
+  color: var(--read);
+  background: color-mix(in srgb, var(--read) 12%, transparent);
+}
+.access-trigger {
+  color: var(--trigger);
+  background: color-mix(in srgb, var(--trigger) 14%, transparent);
+}
+.access-call {
+  color: var(--condition);
+  background: color-mix(in srgb, var(--condition) 14%, transparent);
+}
+
+/* Solution map */
+.map-flow,
+.map-resource {
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.map-flow {
+  padding: 10px 12px;
+  border-left: 4px solid var(--accent);
+}
+.map-resource {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 20px;
+}
+.map-resource.kind-sharepoint .kind-badge {
+  color: #036c70;
+  background: color-mix(in srgb, #036c70 15%, transparent);
+}
+.map-resource.kind-dataverse .kind-badge {
+  color: #6b2bbf;
+  background: color-mix(in srgb, #6b2bbf 15%, transparent);
+}
+.map-resource.kind-excel .kind-badge {
+  color: #1d6f42;
+  background: color-mix(in srgb, #1d6f42 15%, transparent);
+}
+.map-flow.selected,
+.map-resource.selected {
+  outline: 2px solid var(--accent);
+}
+.dyn {
+  color: var(--fn);
+  font-style: italic;
+}
+.react-flow__edge.access-write path {
+  stroke: var(--write);
+}
+.react-flow__edge.access-trigger path {
+  stroke: var(--trigger);
+  stroke-width: 2;
+}
+.react-flow__edge.access-call path {
+  stroke: var(--condition);
+  stroke-dasharray: 6 3;
+}
+.react-flow__edge.dimmed {
+  opacity: 0.15;
+}
+.react-flow__edge.access-read path {
+  stroke: var(--read);
+}
+.map-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  padding: 4px 10px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.legend-line {
+  display: inline-block;
+  width: 22px;
+  height: 0;
+  margin-left: 8px;
+  border-top: 2px solid var(--muted);
+}
+.legend-line.access-read {
+  border-color: var(--read);
+}
+.legend-line.access-write {
+  border-color: var(--write);
+}
+.legend-line.access-trigger {
+  border-color: var(--trigger);
+  border-top-width: 3px;
+}
+.legend-line.access-call {
+  border-color: var(--condition);
+  border-top-style: dashed;
+}

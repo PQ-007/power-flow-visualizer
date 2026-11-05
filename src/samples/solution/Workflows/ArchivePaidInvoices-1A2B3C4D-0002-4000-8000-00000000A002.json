@@ -1,0 +1,126 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "new_sharedsharepointonline_finance"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "Every_night": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "schedule": {
+              "hours": ["2"]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Get_paid_invoices": {
+          "type": "OpenApiConnection",
+          "runAfter": {},
+          "metadata": {
+            "6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5": "Invoices"
+          },
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems"
+            },
+            "parameters": {
+              "dataset": "https://contoso.sharepoint.com/sites/finance",
+              "table": "6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5",
+              "$filter": "Status eq 'Paid'"
+            }
+          }
+        },
+        "Archive_each_invoice": {
+          "type": "Foreach",
+          "runAfter": {
+            "Get_paid_invoices": ["Succeeded"]
+          },
+          "foreach": "@outputs('Get_paid_invoices')?['body/value']",
+          "actions": {
+            "Copy_to_archive": {
+              "type": "OpenApiConnection",
+              "runAfter": {},
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "PostItem"
+                },
+                "parameters": {
+                  "dataset": "https://contoso.sharepoint.com/sites/finance",
+                  "table": "Invoices Archive",
+                  "item/Title": "@items('Archive_each_invoice')?['Title']",
+                  "item/Amount": "@items('Archive_each_invoice')?['Amount']"
+                }
+              }
+            },
+            "Delete_original": {
+              "type": "OpenApiConnection",
+              "runAfter": {
+                "Copy_to_archive": ["Succeeded"]
+              },
+              "metadata": {
+                "6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5": "Invoices"
+              },
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "DeleteItem"
+                },
+                "parameters": {
+                  "dataset": "https://contoso.sharepoint.com/sites/finance",
+                  "table": "6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5",
+                  "id": "@items('Archive_each_invoice')?['ID']"
+                }
+              }
+            }
+          }
+        },
+        "Write_audit_entry": {
+          "type": "Workflow",
+          "runAfter": {
+            "Archive_each_invoice": ["Succeeded"]
+          },
+          "inputs": {
+            "host": {
+              "workflowReferenceName": "1a2b3c4d-0003-4000-8000-00000000a003"
+            },
+            "body": {
+              "text": "Archived @{length(outputs('Get_paid_invoices')?['body/value'])} invoices",
+              "text_1": "@{workflow()?['tags']?['flowDisplayName']}"
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

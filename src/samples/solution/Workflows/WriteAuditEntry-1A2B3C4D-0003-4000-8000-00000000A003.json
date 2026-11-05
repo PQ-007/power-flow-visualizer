@@ -1,0 +1,94 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "new_sharedcommondataserviceforapps_finance"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "Message",
+                  "type": "string"
+                },
+                "text_1": {
+                  "title": "Source flow",
+                  "type": "string"
+                }
+              },
+              "required": ["text", "text_1"]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Add_audit_row": {
+          "type": "OpenApiConnection",
+          "runAfter": {},
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "CreateRecord"
+            },
+            "parameters": {
+              "entityName": "new_auditlogs",
+              "item/new_name": "@triggerBody()['text']",
+              "item/new_source": "@triggerBody()['text_1']",
+              "item/new_when": "@utcNow()"
+            }
+          }
+        },
+        "Respond_to_caller": {
+          "type": "Response",
+          "kind": "PowerApp",
+          "runAfter": {
+            "Add_audit_row": ["Succeeded"]
+          },
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "auditid": "@outputs('Add_audit_row')?['body/new_auditlogid']"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auditid": {
+                  "title": "auditId",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

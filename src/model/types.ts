@@ -53,6 +53,15 @@ export interface FlowNode {
 
 export interface ParsedFlow {
   displayName: string
+  /**
+   * Workflow id (lower-case GUID) when known from the export. Child-flow calls
+   * (`Workflow` actions) reference flows by this id.
+   */
+  id?: string
+  /** Path of the file the flow came from (inside a zip or folder). */
+  source?: string
+  /** Connection key used by actions (`shared_sharepointonline`) → connection reference logical name. */
+  connectionReferences?: Record<string, string>
   triggers: FlowNode[]
   /** Top-level actions (nested ones live in `branches`). */
   actions: FlowNode[]

@@ -20,6 +20,15 @@ get a zoomable flow chart of triggers, actions, conditions, switches, loops and 
   highlights those actions on the canvas.
 - Red dashed edges show error-handling paths (`runAfter` Failed/TimedOut).
 
+When several flows are loaded (a solution), the **Solution** view shows:
+
+- a **map** of flows and the SharePoint lists, Dataverse tables, Excel tables, HTTP hosts,
+  mailboxes, environment variables and child flows they trigger on, read, write or call;
+- **search across every flow** — e.g. type `Invoices` to see every flow and action touching
+  that list, then click an action to open the flow right there;
+- details for each flow (what it calls, what calls it, what it uses) and each resource (every
+  action using it, grouped by flow).
+
 Everything runs locally in the browser. Files are never uploaded and no connector is ever called.
 
 > Roadmap, architecture and the dry-run **simulator** design: [docs/PLAN.md](docs/PLAN.md)
@@ -30,6 +39,7 @@ Everything runs locally in the browser. Files are never uploaded and no connecto
 | ------------------------------------------------------ | ------------------------------------------------ |
 | My flows → ⋯ → Export → **Package (.zip)**             | the `.zip` as-is                                 |
 | Solutions → Export solution                            | the solution `.zip` (all flows inside are found) |
+| `pac solution unpack` output                           | **Open folder** and pick the unpacked folder     |
 | Dataverse `workflow` table, `clientdata` column        | save the JSON to a `.json` file                  |
 | Any JSON with `triggers` / `actions` (bare definition) | the `.json` file                                 |
 
@@ -39,7 +49,7 @@ Requires Node 22+ (see `.nvmrc`).
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173 — click "Load sample"
+npm run dev        # http://localhost:5173 — pick a sample from "Samples…"
 ```
 
 | Script              | Does                                                   |
@@ -65,9 +75,12 @@ src/
   analysis/references.ts  what each action's expressions point at (actions, loops, variables…)
   analysis/variables.ts   variables view data + "used by" index + warnings
   analysis/search.ts      search matching
+  analysis/resources.ts   lists/tables/hosts/child flows/env vars each action touches
+  analysis/solution.ts    solution index (resources × flows, child-flow calls) + cross-flow search
+  graph/buildSolutionGraph.ts  solution map layout
   graph/buildGraph.ts     ParsedFlow (+ collapsed set) → ELK layout → React Flow nodes/edges
-  components/             canvas, outline, node renderers, details panel, ELK worker setup
-  samples/                sample flow used by "Load sample" and tests
+  components/             FlowWorkspace (single flow), solution/ (map + search), panels, ELK worker
+  samples/                sample flow + sample solution (Samples… menu and tests)
 docs/PLAN.md              roadmap and design
 ```
 

@@ -9,6 +9,8 @@ interface Props {
   flow: ParsedFlow
   analysis: FlowAnalysis
   node: FlowNode
+  /** Set for "Run a child flow" actions whose target is known. */
+  childFlow?: { name: string; open?: () => void }
   onNavigate: (id: string) => void
   onSelectVariable: (name: string) => void
   onClose: () => void
@@ -21,6 +23,7 @@ export function DetailsPanel({
   flow,
   analysis,
   node,
+  childFlow,
   onNavigate,
   onSelectVariable,
   onClose,
@@ -75,6 +78,20 @@ export function DetailsPanel({
       <dl>
         <dt>Action</dt>
         <dd>{actionTitle(node)}</dd>
+        {childFlow && (
+          <>
+            <dt>Child flow</dt>
+            <dd>
+              {childFlow.open ? (
+                <button className="link" onClick={childFlow.open}>
+                  {childFlow.name} ›
+                </button>
+              ) : (
+                <span className="unresolved">{childFlow.name}</span>
+              )}
+            </dd>
+          </>
+        )}
         <dt>Internal name</dt>
         <dd>
           <code>{node.name}</code>

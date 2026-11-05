@@ -8,7 +8,7 @@ describe('extractDefinition', () => {
     const def = { triggers: {}, actions: {} }
     expect(extractDefinition(def)?.definition).toBe(def)
     expect(extractDefinition({ definition: def })?.definition).toBe(def)
-    expect(extractDefinition({ properties: { displayName: 'X', definition: def } })).toEqual({
+    expect(extractDefinition({ properties: { displayName: 'X', definition: def } })).toMatchObject({
       definition: def,
       displayName: 'X',
     })
