@@ -116,13 +116,26 @@ Remaining:
 
 ### M2 — Understanding tools ("find the piece to fix")
 
-- **Expression parser** for WDL (`@{…}`, `@fn(...)`, `?['a/b']` paths) — shared with M3.
-- **Clickable expressions**: pretty-print long nested expressions; every `body('X')`,
-  `outputs('X')`, `items('Loop')`, `variables('v')` is a link to that action or variable.
-- **Variables view**: every variable, where it's initialized, set, incremented, appended, read.
-  Click → highlight all those actions.
-- **Data lineage**: "uses data from" / "data used by" for each action; optional overlay of
-  data-flow edges on the canvas.
+Done:
+
+- ✅ **Expression parser** for WDL (`src/expr`): whole-value `@…`, interpolated `@{…}`, `@@`
+  escapes, calls, `'it''s'` strings, `?['a/b']` / `.prop` member chains. Tolerant: bad input
+  becomes an error node, never an exception. Shared with the M3 simulator.
+- ✅ **Clickable expressions** in the details panel: syntax-highlighted, long calls broken one
+  argument per line; `body('X')`, `outputs('X')`, `result('X')`, `items('Loop')`, `item()`,
+  `triggerBody()`… jump to that action, `variables('v')` opens the variable. References to
+  actions that don't exist are flagged in red.
+- ✅ Readable **Definition** view (YAML-like) instead of raw JSON (raw JSON still one click away).
+- ✅ **Uses / Used by** per action (data lineage as lists).
+- ✅ **Variables view** (sidebar tab): every variable with where it's initialized, changed (with
+  the value) and read. Selecting one highlights those actions on the canvas (orange = writes,
+  blue = reads), filters the outline, and zooms to fit them. Warnings: used but never
+  initialized, initialized twice or inside a container, never read, changed inside an
+  Apply to each with parallel iterations.
+
+Remaining:
+
+- Data lineage overlay: optional data-flow edges on the canvas.
 - **Search 2.0**: filters like `connector:sharepoint`, `type:SetVariable`, `uses:ApprovalStatus`,
   `fails-to:Catch`.
 - **Lint / smells**: unreachable actions, no error handling around connectors, hard-coded emails or
@@ -218,7 +231,7 @@ service; the deterministic summary in M2 covers most of the value).
 ## 9. Suggested order of work (next steps)
 
 1. ✅ M1: collapse/expand, outline, friendly names, key inputs on cards, layout worker.
-2. M2: expression parser → clickable expressions → variables view → lineage.
+2. ✅ M2: expression parser → clickable expressions → variables view (lineage overlay left).
 3. M2.5: solution-wide search and map.
 4. M2.6: real run overlay.
 5. M3: simulator engine (reusing the expression parser and real-run outputs), then its UI.

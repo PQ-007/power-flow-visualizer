@@ -13,6 +13,12 @@
   --no: #cf222e;
   --danger: #cf222e;
   --highlight: #f5a623;
+  --write: #c75300;
+  --read: #0f6cbd;
+  --fn: #8a3ffc;
+  --str: #0a7d3e;
+  --prop: #9a5b00;
+  --lit: #b0006a;
   color-scheme: light dark;
   font-family: system-ui, 'Segoe UI', sans-serif;
   font-size: 14px;
@@ -26,6 +32,12 @@
     --muted: #9aa4b2;
     --border: #3a414a;
     --accent: #4aa3ff;
+    --write: #ff9b54;
+    --read: #4aa3ff;
+    --fn: #c3a6ff;
+    --str: #7ee2a8;
+    --prop: #ffc66d;
+    --lit: #ff8fc8;
   }
 }
 
@@ -296,26 +308,55 @@ main > .canvas {
   opacity: 0;
 }
 
-/* Outline */
-.outline {
-  width: 280px;
+/* Sidebar (Outline / Variables tabs) */
+.sidebar {
+  width: 300px;
   flex: none;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 8px 0;
   font-size: 13px;
+  min-height: 0;
+}
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+.tabs button {
+  flex: 1;
+  font: inherit;
+  padding: 8px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tabs button[aria-selected='true'] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+.tabs small {
+  font-weight: normal;
+  color: var(--muted);
+}
+.outline,
+.variables {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 0;
+}
+.panel-empty {
+  padding: 12px;
+  color: var(--muted);
 }
 .outline ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.outline-title {
-  padding: 0 12px 8px;
-  font-weight: 600;
-}
-.outline-title small,
 .outline-empty {
   color: var(--muted);
   font-weight: normal;
@@ -422,7 +463,7 @@ main > .canvas {
 }
 
 @media (max-width: 800px) {
-  .outline {
+  .sidebar {
     position: absolute;
     z-index: 10;
     height: 100%;
@@ -435,4 +476,248 @@ main > .canvas {
     height: 100%;
     max-width: 90vw;
   }
+}
+
+/* Variable highlight roles (canvas + outline) */
+.react-flow__node.match.role-write .card,
+.react-flow__node.match.role-write .container {
+  outline: 2px solid var(--write);
+}
+.react-flow__node.match.role-read .card,
+.react-flow__node.match.role-read .container {
+  outline: 2px solid var(--read);
+}
+.outline-row.match.role-write .outline-name {
+  background: color-mix(in srgb, var(--write) 30%, transparent);
+}
+.outline-row.match.role-read .outline-name {
+  background: color-mix(in srgb, var(--read) 25%, transparent);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.toolbar .chip button {
+  border: none;
+  background: none;
+  padding: 0 6px;
+  font-size: 16px;
+}
+
+/* Variables panel */
+.variables ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.legend {
+  margin: 0 12px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  margin-left: 6px;
+}
+.swatch.write {
+  background: var(--write);
+}
+.swatch.read {
+  background: var(--read);
+}
+.var-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 12px;
+  font: inherit;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.var-row:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.variables li.open > .var-row {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.var-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.var-type {
+  font-size: 11px;
+  color: var(--muted);
+}
+.var-counts {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.var-details {
+  padding: 4px 12px 12px 20px;
+}
+.var-details h4 {
+  margin: 10px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.var-use {
+  margin: 2px 0 6px;
+}
+.var-value {
+  margin: 2px 0 0 10px;
+}
+.warn-line {
+  color: #b35c00;
+  margin: 2px 0;
+}
+
+/* Links shared by details + variables panels */
+.link {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.link:hover {
+  text-decoration: underline;
+}
+.link.var {
+  color: var(--write);
+}
+.unresolved {
+  color: var(--danger);
+  text-decoration: wavy underline;
+}
+
+/* Expressions */
+.expr {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.expr-at {
+  color: var(--muted);
+}
+.expr-fn {
+  color: var(--fn);
+}
+.expr-str {
+  color: var(--str);
+}
+.expr-lit {
+  color: var(--lit);
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+}
+.expr-prop {
+  color: var(--muted);
+}
+.expr-prop .expr-str {
+  color: var(--prop);
+}
+.expr-text {
+  font-size: 12px;
+}
+.expr-error {
+  color: var(--danger);
+}
+.expr-interp {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-radius: 3px;
+}
+.expr-args {
+  display: block;
+  padding-left: 1.5em;
+  border-left: 1px dotted var(--border);
+  margin-left: 0.25em;
+}
+.expr-arg {
+  display: block;
+}
+.expr-ref {
+  font: inherit;
+  padding: 0 2px;
+  margin: 0 -2px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.expr-ref.action {
+  color: var(--accent);
+}
+.expr-ref.var {
+  color: var(--write);
+}
+.expr-ref.param {
+  cursor: default;
+}
+.expr-ref.unresolved {
+  cursor: help;
+}
+.expr-ref:hover:not(.unresolved):not(.param) {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  text-decoration: none;
+}
+
+/* Definition (YAML-like JSON view) */
+.definition {
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+ul.json {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+ul.json ul.json {
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+  margin: 2px 0 4px 2px;
+}
+ul.json > li {
+  margin: 2px 0;
+}
+.json-key {
+  color: var(--muted);
+  font-size: 12px;
+  margin-right: 6px;
+}
+.json-key::after {
+  content: ':';
+}
+.json-value {
+  word-break: break-word;
+}
+details.raw {
+  margin-top: 16px;
+}
+details.raw summary {
+  cursor: pointer;
+  color: var(--muted);
 }

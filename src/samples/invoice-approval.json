@@ -6,12 +6,18 @@
       "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
       "contentVersion": "1.0.0.0",
       "parameters": {
-        "$connections": { "defaultValue": {}, "type": "Object" }
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
       },
       "triggers": {
         "When_an_item_is_created": {
           "type": "OpenApiConnection",
-          "recurrence": { "frequency": "Minute", "interval": 5 },
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
           "inputs": {
             "host": {
               "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
@@ -30,12 +36,20 @@
           "type": "InitializeVariable",
           "runAfter": {},
           "inputs": {
-            "variables": [{ "name": "ApprovalStatus", "type": "string", "value": "Pending" }]
+            "variables": [
+              {
+                "name": "ApprovalStatus",
+                "type": "string",
+                "value": "Pending"
+              }
+            ]
           }
         },
         "Try": {
           "type": "Scope",
-          "runAfter": { "Initialize_ApprovalStatus": ["Succeeded"] },
+          "runAfter": {
+            "Initialize_ApprovalStatus": ["Succeeded"]
+          },
           "actions": {
             "Get_approver": {
               "type": "OpenApiConnection",
@@ -46,14 +60,22 @@
                   "connectionName": "shared_office365users",
                   "operationId": "Manager_V2"
                 },
-                "parameters": { "id": "@triggerOutputs()?['body/Author/Email']" }
+                "parameters": {
+                  "id": "@triggerOutputs()?['body/Author/Email']"
+                }
               }
             },
             "Check_amount": {
               "type": "If",
-              "runAfter": { "Get_approver": ["Succeeded"] },
+              "runAfter": {
+                "Get_approver": ["Succeeded"]
+              },
               "expression": {
-                "and": [{ "greater": ["@triggerOutputs()?['body/Amount']", 10000] }]
+                "and": [
+                  {
+                    "greater": ["@triggerOutputs()?['body/Amount']", 10000]
+                  }
+                ]
               },
               "actions": {
                 "Start_and_wait_for_an_approval": {
@@ -74,7 +96,9 @@
                 },
                 "Switch_on_outcome": {
                   "type": "Switch",
-                  "runAfter": { "Start_and_wait_for_an_approval": ["Succeeded"] },
+                  "runAfter": {
+                    "Start_and_wait_for_an_approval": ["Succeeded"]
+                  },
                   "expression": "@body('Start_and_wait_for_an_approval')?['outcome']",
                   "cases": {
                     "Case_Approve": {
@@ -83,7 +107,10 @@
                         "Set_status_Approved": {
                           "type": "SetVariable",
                           "runAfter": {},
-                          "inputs": { "name": "ApprovalStatus", "value": "Approved" }
+                          "inputs": {
+                            "name": "ApprovalStatus",
+                            "value": "Approved"
+                          }
                         }
                       }
                     },
@@ -93,12 +120,17 @@
                         "Set_status_Rejected": {
                           "type": "SetVariable",
                           "runAfter": {},
-                          "inputs": { "name": "ApprovalStatus", "value": "Rejected" }
+                          "inputs": {
+                            "name": "ApprovalStatus",
+                            "value": "Rejected"
+                          }
                         }
                       }
                     }
                   },
-                  "default": { "actions": {} }
+                  "default": {
+                    "actions": {}
+                  }
                 }
               },
               "else": {
@@ -106,14 +138,19 @@
                   "Auto_approve": {
                     "type": "SetVariable",
                     "runAfter": {},
-                    "inputs": { "name": "ApprovalStatus", "value": "Approved" }
+                    "inputs": {
+                      "name": "ApprovalStatus",
+                      "value": "Approved"
+                    }
                   }
                 }
               }
             },
             "Update_item": {
               "type": "OpenApiConnection",
-              "runAfter": { "Check_amount": ["Succeeded"] },
+              "runAfter": {
+                "Check_amount": ["Succeeded"]
+              },
               "inputs": {
                 "host": {
                   "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
@@ -132,7 +169,9 @@
         },
         "Catch": {
           "type": "Scope",
-          "runAfter": { "Try": ["Failed", "TimedOut"] },
+          "runAfter": {
+            "Try": ["Failed", "TimedOut"]
+          },
           "actions": {
             "Notify_admins": {
               "type": "OpenApiConnection",
@@ -146,20 +185,26 @@
                 "parameters": {
                   "emailMessage/To": "flow-admins@contoso.com",
                   "emailMessage/Subject": "Invoice approval failed",
-                  "emailMessage/Body": "@{result('Try')}"
+                  "emailMessage/Body": "@{concat('Invoice ', triggerOutputs()?['body/Title'], ' failed: ', string(first(result('Try'))?['error']?['message']))}"
                 }
               }
             },
             "Terminate": {
               "type": "Terminate",
-              "runAfter": { "Notify_admins": ["Succeeded"] },
-              "inputs": { "runStatus": "Failed" }
+              "runAfter": {
+                "Notify_admins": ["Succeeded"]
+              },
+              "inputs": {
+                "runStatus": "Failed"
+              }
             }
           }
         },
         "Notify_each_watcher": {
           "type": "Foreach",
-          "runAfter": { "Try": ["Succeeded"] },
+          "runAfter": {
+            "Try": ["Succeeded"]
+          },
           "foreach": "@triggerOutputs()?['body/Watchers']",
           "actions": {
             "Post_message_in_Teams": {
@@ -171,7 +216,12 @@
                   "connectionName": "shared_teams",
                   "operationId": "PostMessageToConversation"
                 },
-                "parameters": { "body/messageBody": "Invoice is @{variables('ApprovalStatus')}" }
+                "parameters": {
+                  "poster": "Flow bot",
+                  "location": "Chat with Flow bot",
+                  "body/recipient": "@items('Notify_each_watcher')?['Email']",
+                  "body/messageBody": "Invoice @{triggerOutputs()?['body/Title']} is @{toLower(variables('ApprovalStatus'))}"
+                }
               }
             }
           }

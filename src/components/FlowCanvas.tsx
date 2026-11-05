@@ -21,9 +21,11 @@ export interface FocusRequest {
   nonce: number
   /**
    * `zoom` fits the node on screen; `center` pans to it keeping the current zoom;
-   * `fit` fits the whole diagram (id is ignored).
+   * `fit` fits the whole diagram (id is ignored); `fitMany` fits the nodes in `ids`
+   * (or the collapsed containers hiding them).
    */
-  mode: 'zoom' | 'center' | 'fit'
+  mode: 'zoom' | 'center' | 'fit' | 'fitMany'
+  ids?: string[]
 }
 
 interface Props {
@@ -31,6 +33,8 @@ interface Props {
   collapsed: ReadonlySet<string>
   /** Search matches, or null when no search is active. */
   matches: ReadonlySet<string> | null
+  /** Optional read/write role per highlighted node (variable view). */
+  roles?: ReadonlyMap<string, 'write' | 'read'> | null
   selectedId: string | null
   focus: FocusRequest | null
   onSelect: (id: string | null) => void
@@ -46,7 +50,7 @@ interface LayoutResult {
 }
 
 export function FlowCanvas(props: Props) {
-  const { flow, collapsed, matches, selectedId, focus, onSelect, onToggleCollapse } = props
+  const { flow, collapsed, matches, roles, selectedId, focus, onSelect, onToggleCollapse } = props
   const rf = useReactFlow()
 
   // Results are tagged with their inputs so a stale layout is never shown for new inputs.
@@ -81,24 +85,48 @@ export function FlowCanvas(props: Props) {
     return graph.nodes.map((n) => {
       const selected = n.id === selectedId
       if (!matches || n.type === 'branch') return selected ? { ...n, selected } : n
+      const role = roles?.get(n.id)
       const className = matches.has(n.id)
-        ? 'match'
+        ? `match${role ? ` role-${role}` : ''}`
         : hiddenMatchOwners.has(n.id)
           ? 'match-inside'
           : 'dimmed'
       return { ...n, selected, className }
     })
-  }, [graph, matches, selectedId, flow, collapsed])
+  }, [graph, matches, roles, selectedId, flow, collapsed])
 
   // Move the viewport once the requested node is in the current layout.
   const handledNonce = useRef<number | null>(null)
   useEffect(() => {
     if (!focus || !fresh || handledNonce.current === focus.nonce) return
-    if (focus.mode !== 'fit' && !nodes.some((n) => n.id === focus.id)) return
+    const present = new Set(nodes.map((n) => n.id))
+    const many = focus.mode === 'fitMany'
+    if (!many && focus.mode !== 'fit' && !present.has(focus.id)) return
     handledNonce.current = focus.nonce
+    // For fitMany, nodes hidden in collapsed containers are represented by those containers.
+    const targets = many
+      ? [
+          ...new Set(
+            (focus.ids ?? []).map((id) =>
+              present.has(id)
+                ? id
+                : ancestorsOf(flow, id).find((a) => present.has(a) && collapsed.has(a)),
+            ),
+          ),
+        ].filter((id): id is string => !!id)
+      : []
     const frame = requestAnimationFrame(() => {
-      if (focus.mode === 'fit') {
+      if (focus.mode === 'fit' || (many && targets.length === 0)) {
         void rf.fitView({ duration: 300 })
+        return
+      }
+      if (many) {
+        void rf.fitView({
+          nodes: targets.map((id) => ({ id })),
+          duration: 400,
+          maxZoom: 1,
+          padding: 0.15,
+        })
         return
       }
       if (focus.mode === 'zoom') {
@@ -112,7 +140,7 @@ export function FlowCanvas(props: Props) {
       void rf.setCenter(x + w / 2, y + 40, { zoom: rf.getZoom(), duration: 300 })
     })
     return () => cancelAnimationFrame(frame)
-  }, [focus, fresh, nodes, rf])
+  }, [focus, fresh, nodes, rf, flow, collapsed])
 
   const actions = useMemo(() => ({ toggleCollapse: onToggleCollapse }), [onToggleCollapse])
   const onNodeClick: NodeMouseHandler = (_, n) => {

@@ -8,6 +8,7 @@ interface Props {
   flow: ParsedFlow
   collapsed: ReadonlySet<string>
   matches: ReadonlySet<string> | null
+  roles?: ReadonlyMap<string, 'write' | 'read'> | null
   selectedId: string | null
   onSelect: (id: string) => void
   onToggleCollapse: (id: string) => void
@@ -21,6 +22,7 @@ export function OutlinePanel({
   flow,
   collapsed,
   matches,
+  roles,
   selectedId,
   onSelect,
   onToggleCollapse,
@@ -56,7 +58,12 @@ export function OutlinePanel({
           <li key={n.id}>
             <div
               ref={selected ? selectedRef : undefined}
-              className={['outline-row', selected && 'selected', matches?.has(n.id) && 'match']
+              className={[
+                'outline-row',
+                selected && 'selected',
+                matches?.has(n.id) && 'match',
+                roles?.has(n.id) && `role-${roles.get(n.id)}`,
+              ]
                 .filter(Boolean)
                 .join(' ')}
               style={{ paddingLeft: 8 + depth * 14 }}
@@ -104,9 +111,6 @@ export function OutlinePanel({
 
   return (
     <nav className="outline" aria-label="Flow outline">
-      <div className="outline-title">
-        Outline <small>{flow.byId.size} steps</small>
-      </div>
       {matches && matches.size === 0 && <div className="outline-empty">No matches</div>}
       <ul>
         {renderNodes(flow.triggers, 0)}

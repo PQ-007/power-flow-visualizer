@@ -11,8 +11,14 @@ get a zoomable flow chart of triggers, actions, conditions, switches, loops and 
 - The outline on the left lists every step; click one to expand what hides it and zoom to it.
 - Search (`/`) matches names, connectors and anything in an action's inputs (variable names,
   expressions, URLs…). Matches inside collapsed containers mark the container.
-- Click an action for its details and raw JSON, with links to its container, what it runs after
-  and what runs after it. Red dashed edges show error-handling paths (`runAfter` Failed/TimedOut).
+- Click an action for its details: links to its container, what it runs after, what runs after
+  it, which actions/variables it uses and which actions use it.
+- Expressions are syntax-highlighted and pretty-printed; `body('X')`, `items('Loop')`,
+  `variables('v')` and friends are links. References to missing actions are flagged.
+- The **Variables** tab lists every variable with where it's initialized, changed and read,
+  plus warnings (never initialized, never read, changed in a parallel loop…). Selecting one
+  highlights those actions on the canvas.
+- Red dashed edges show error-handling paths (`runAfter` Failed/TimedOut).
 
 Everything runs locally in the browser. Files are never uploaded and no connector is ever called.
 
@@ -55,6 +61,9 @@ src/
   model/describe.ts       card titles and one-line summaries (condition text, assignments…)
   model/tree.ts           ancestors, depth, collapse defaults, designer-order walk
   parser/                 .zip/.json → definition → ParsedFlow   (pure TS, unit tested)
+  expr/                   WDL expression parser + printer
+  analysis/references.ts  what each action's expressions point at (actions, loops, variables…)
+  analysis/variables.ts   variables view data + "used by" index + warnings
   analysis/search.ts      search matching
   graph/buildGraph.ts     ParsedFlow (+ collapsed set) → ELK layout → React Flow nodes/edges
   components/             canvas, outline, node renderers, details panel, ELK worker setup

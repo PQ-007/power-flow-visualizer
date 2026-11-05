@@ -1,23 +1,68 @@
-import { actionSummary, actionTitle } from '../model/describe'
+import type { Ref } from '../analysis/references'
+import type { FlowAnalysis } from '../analysis/variables'
+import { actionTitle } from '../model/describe'
 import type { FlowNode, ParsedFlow } from '../model/types'
+import { ExprContext } from './exprContext'
+import { JsonView } from './JsonView'
 
 interface Props {
   flow: ParsedFlow
+  analysis: FlowAnalysis
   node: FlowNode
   onNavigate: (id: string) => void
+  onSelectVariable: (name: string) => void
   onClose: () => void
 }
 
-export function DetailsPanel({ flow, node, onNavigate, onClose }: Props) {
+/** Keys shown elsewhere in the panel or on the canvas. */
+const HIDDEN_KEYS = new Set(['type', 'runAfter', 'actions', 'else', 'cases', 'default', 'metadata'])
+
+export function DetailsPanel({
+  flow,
+  analysis,
+  node,
+  onNavigate,
+  onSelectVariable,
+  onClose,
+}: Props) {
   const runAfter = Object.entries(node.runAfter)
   // Siblings that run after this one (the "next" steps, including error handlers).
   const next = [...flow.byId.values()].filter((n) => node.id in n.runAfter)
-  const summary = actionSummary(node)
+  const refs = analysis.refs.get(node.id) ?? []
+  const usedBy = analysis.usedBy.get(node.id) ?? []
+  const definition = definitionView(node)
+  const parent = node.parentId ? flow.byId.get(node.parentId) : undefined
+  const branch =
+    parent?.branches.length !== 1 ? parent?.branches.find((b) => b.id === node.branchId) : undefined
+
   const link = (id: string) => (
     <button className="link" onClick={() => onNavigate(id)}>
       {flow.byId.get(id)?.displayName ?? id}
     </button>
   )
+  const refItem = (r: Ref) => {
+    if (r.unresolved) {
+      return (
+        <span className="unresolved" title="Not found in this flow — renamed or deleted action?">
+          {r.target || `${r.fn}()`} (missing)
+        </span>
+      )
+    }
+    switch (r.kind) {
+      case 'variable':
+        return (
+          <button className="link var" onClick={() => onSelectVariable(r.target)}>
+            {r.target}
+          </button>
+        )
+      case 'parameter':
+        return <span>parameter {r.target}</span>
+      case 'loop':
+        return <>current item of {link(r.target)}</>
+      default:
+        return link(r.target)
+    }
+  }
 
   return (
     <aside className="details">
@@ -30,35 +75,16 @@ export function DetailsPanel({ flow, node, onNavigate, onClose }: Props) {
       <dl>
         <dt>Action</dt>
         <dd>{actionTitle(node)}</dd>
-        {summary && (
-          <>
-            <dt>Summary</dt>
-            <dd>
-              <code className="wrap">{summary}</code>
-            </dd>
-          </>
-        )}
         <dt>Internal name</dt>
         <dd>
           <code>{node.name}</code>
         </dd>
-        <dt>Type</dt>
-        <dd>{node.type}</dd>
-        {node.parentId && (
+        {parent && (
           <>
             <dt>Inside</dt>
             <dd>
-              {link(node.parentId)}
-              {node.branchId && flow.byId.get(node.parentId)?.branches.length !== 1 && (
-                <small>
-                  {' '}
-                  ·{' '}
-                  {
-                    flow.byId.get(node.parentId)?.branches.find((b) => b.id === node.branchId)
-                      ?.label
-                  }
-                </small>
-              )}
+              {link(parent.id)}
+              {branch && <small> · {branch.label}</small>}
             </dd>
           </>
         )}
@@ -86,11 +112,57 @@ export function DetailsPanel({ flow, node, onNavigate, onClose }: Props) {
             </dd>
           </>
         )}
+        {refs.length > 0 && (
+          <>
+            <dt>Uses</dt>
+            <dd>
+              {refs.map((r) => (
+                <div key={`${r.kind}:${r.target}`}>{refItem(r)}</div>
+              ))}
+            </dd>
+          </>
+        )}
+        {usedBy.length > 0 && (
+          <>
+            <dt>Used by</dt>
+            <dd>
+              {usedBy.map((id) => (
+                <div key={id}>{link(id)}</div>
+              ))}
+            </dd>
+          </>
+        )}
       </dl>
-      <h3>Raw JSON</h3>
-      <pre>{JSON.stringify(stripNested(node.raw), null, 2)}</pre>
+      {Object.keys(definition).length > 0 && (
+        <>
+          <h3>Definition</h3>
+          <ExprContext.Provider value={{ flow, nodeId: node.id, onNavigate, onSelectVariable }}>
+            <div className="definition">
+              <JsonView value={definition} />
+            </div>
+          </ExprContext.Provider>
+        </>
+      )}
+      <details className="raw">
+        <summary>Raw JSON</summary>
+        <pre>{JSON.stringify(stripNested(node.raw), null, 2)}</pre>
+      </details>
     </aside>
   )
+}
+
+/**
+ * The parts of an action worth reading: drops keys shown elsewhere and, for connector
+ * actions, the `inputs.host` block (already summarized as "Action").
+ */
+function definitionView(node: FlowNode): Record<string, unknown> {
+  const view = Object.fromEntries(Object.entries(node.raw).filter(([k]) => !HIDDEN_KEYS.has(k)))
+  const inputs = view.inputs
+  if (node.connector && inputs && typeof inputs === 'object' && !Array.isArray(inputs)) {
+    const { host: _host, ...rest } = inputs as Record<string, unknown>
+    view.inputs = rest
+  }
+  return view
 }
 
 /** Nested actions are shown on the canvas; hide them here to keep the JSON readable. */

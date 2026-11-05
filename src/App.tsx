@@ -1,9 +1,11 @@
 import { ReactFlowProvider } from '@xyflow/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { findMatches } from './analysis/search'
+import { analyzeFlow, variableRoles } from './analysis/variables'
 import { DetailsPanel } from './components/DetailsPanel'
 import { FlowCanvas, type FocusRequest } from './components/FlowCanvas'
 import { OutlinePanel } from './components/OutlinePanel'
+import { VariablesPanel } from './components/VariablesPanel'
 import { ancestorsOf, containersAtOrBelow, defaultCollapsed } from './model/tree'
 import type { ParsedFlow } from './model/types'
 import { loadFlowFromJson, loadFlowsFromFile } from './parser/loadFlow'
@@ -25,7 +27,9 @@ export default function App() {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [level, setLevel] = useState('')
   const [focus, setFocus] = useState<FocusRequest | null>(null)
-  const [showOutline, setShowOutline] = useState(true)
+  const [showSidebar, setShowSidebar] = useState(true)
+  const [sidebarTab, setSidebarTab] = useState<'outline' | 'variables'>('outline')
+  const [selectedVariable, setSelectedVariable] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const nonce = useRef(0)
@@ -36,6 +40,7 @@ export default function App() {
     setFlows(list)
     setActive(index)
     setSelectedId(null)
+    setSelectedVariable(null)
     setFocus(null)
     setCollapsed(list[index] ? defaultCollapsed(list[index]) : new Set())
     setLevel('')
@@ -83,10 +88,37 @@ export default function App() {
     requestFocus('', 'fit')
   }
 
-  const matches = useMemo(
+  const analysis = useMemo(() => (flow ? analyzeFlow(flow) : null), [flow])
+  const variable = selectedVariable
+    ? analysis?.variables.get(selectedVariable.toLowerCase())
+    : undefined
+  const roles = useMemo(() => (variable ? variableRoles(variable) : null), [variable])
+
+  // Highlighted set: the selected variable's actions, otherwise the search matches.
+  const searchMatches = useMemo(
     () => (flow && search.trim() ? findMatches(flow, search) : null),
     [flow, search],
   )
+  const matches = useMemo(
+    () => (roles ? new Set(roles.keys()) : searchMatches),
+    [roles, searchMatches],
+  )
+
+  const selectVariable = (name: string | null) => {
+    setSelectedVariable(name)
+    const info = name ? analysis?.variables.get(name.toLowerCase()) : undefined
+    if (info) {
+      setSearch('')
+      setSidebarTab('variables')
+      setShowSidebar(true)
+      setFocus({
+        id: '',
+        mode: 'fitMany',
+        ids: [...variableRoles(info).keys()],
+        nonce: ++nonce.current,
+      })
+    }
+  }
 
   // "/" focuses search, Esc clears search or selection.
   useEffect(() => {
@@ -97,12 +129,13 @@ export default function App() {
         searchRef.current?.focus()
       } else if (e.key === 'Escape') {
         if (typing && search) setSearch('')
+        else if (selectedVariable) setSelectedVariable(null)
         else setSelectedId(null)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [search])
+  }, [search, selectedVariable])
 
   const selected = selectedId ? flow?.byId.get(selectedId) : undefined
 
@@ -146,11 +179,11 @@ export default function App() {
         {flow && (
           <>
             <button
-              onClick={() => setShowOutline((v) => !v)}
-              aria-pressed={showOutline}
-              title="Toggle outline"
+              onClick={() => setShowSidebar((v) => !v)}
+              aria-pressed={showSidebar}
+              title="Toggle side panel"
             >
-              ☰ Outline
+              ☰ Panel
             </button>
             <select value={level} onChange={(e) => changeLevel(e.target.value)} aria-label="Show">
               <option value="" disabled>
@@ -167,11 +200,22 @@ export default function App() {
               className="search"
               placeholder="Search actions, connectors, expressions…  ( / )"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setSelectedVariable(null)
+              }}
             />
-            {matches && (
+            {searchMatches && (
               <span className="muted">
-                {matches.size} match{matches.size === 1 ? '' : 'es'}
+                {searchMatches.size} match{searchMatches.size === 1 ? '' : 'es'}
+              </span>
+            )}
+            {variable && (
+              <span className="chip">
+                Variable <strong>{variable.name}</strong>
+                <button onClick={() => setSelectedVariable(null)} aria-label="Clear variable">
+                  ×
+                </button>
               </span>
             )}
             {flow.warnings.length > 0 && (
@@ -186,32 +230,67 @@ export default function App() {
       <main>
         {flow ? (
           <ReactFlowProvider key={`${active}:${flow.displayName}:${flows.length}`}>
-            {showOutline && (
-              <OutlinePanel
-                flow={flow}
-                collapsed={collapsed}
-                matches={matches}
-                selectedId={selectedId}
-                onSelect={reveal}
-                onToggleCollapse={toggleCollapse}
-              />
+            {showSidebar && analysis && (
+              <aside className="sidebar">
+                <div className="tabs" role="tablist">
+                  <button
+                    role="tab"
+                    aria-selected={sidebarTab === 'outline'}
+                    onClick={() => setSidebarTab('outline')}
+                  >
+                    Outline <small>{flow.byId.size}</small>
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={sidebarTab === 'variables'}
+                    onClick={() => setSidebarTab('variables')}
+                  >
+                    Variables <small>{analysis.variables.size}</small>
+                    {[...analysis.variables.values()].some((v) => v.warnings.length) && (
+                      <span className="warn"> ⚠</span>
+                    )}
+                  </button>
+                </div>
+                {sidebarTab === 'outline' ? (
+                  <OutlinePanel
+                    flow={flow}
+                    collapsed={collapsed}
+                    matches={matches}
+                    roles={roles}
+                    selectedId={selectedId}
+                    onSelect={reveal}
+                    onToggleCollapse={toggleCollapse}
+                  />
+                ) : (
+                  <VariablesPanel
+                    flow={flow}
+                    analysis={analysis}
+                    selected={selectedVariable}
+                    onSelectVariable={selectVariable}
+                    onNavigate={reveal}
+                  />
+                )}
+              </aside>
             )}
             <div className="canvas">
               <FlowCanvas
                 flow={flow}
                 collapsed={collapsed}
                 matches={matches}
+                roles={roles}
                 selectedId={selectedId}
                 focus={focus}
                 onSelect={setSelectedId}
                 onToggleCollapse={toggleCollapse}
               />
             </div>
-            {selected && (
+            {selected && analysis && (
               <DetailsPanel
                 flow={flow}
+                analysis={analysis}
                 node={selected}
                 onNavigate={reveal}
+                onSelectVariable={selectVariable}
                 onClose={() => setSelectedId(null)}
               />
             )}
