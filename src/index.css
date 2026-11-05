@@ -1,0 +1,252 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #1b1f24;
+  --muted: #5b6573;
+  --border: #d4d9e0;
+  --accent: #0f6cbd;
+  --trigger: #8a3ffc;
+  --condition: #0e7c86;
+  --loop: #b35c00;
+  --scope: #6b7280;
+  --yes: #1a7f37;
+  --no: #cf222e;
+  --danger: #cf222e;
+  color-scheme: light dark;
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181c;
+    --surface: #1f2328;
+    --text: #e6e8eb;
+    --muted: #9aa4b2;
+    --border: #3a414a;
+    --accent: #4aa3ff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.toolbar button,
+.toolbar .button,
+.toolbar select,
+.toolbar .search {
+  font: inherit;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.toolbar .search {
+  cursor: text;
+  min-width: 280px;
+  flex: 1;
+  max-width: 480px;
+}
+.warn {
+  color: #b35c00;
+  cursor: help;
+}
+.error {
+  padding: 8px 12px;
+  background: #ffebe9;
+  color: var(--danger);
+}
+main {
+  flex: 1;
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
+main > .react-flow {
+  flex: 1;
+}
+.empty {
+  margin: auto;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Nodes */
+.card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.card.kind-trigger {
+  border-left-color: var(--trigger);
+}
+.card.selected,
+.container.selected {
+  outline: 2px solid var(--accent);
+}
+.card-icon {
+  font-size: 16px;
+  width: 18px;
+  text-align: center;
+}
+.card-text {
+  min-width: 0;
+}
+.card-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-sub {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.container {
+  width: 100%;
+  height: 100%;
+  border: 1px dashed var(--scope);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--scope) 6%, transparent);
+}
+.container.kind-condition,
+.container.kind-switch {
+  border-color: var(--condition);
+  background: color-mix(in srgb, var(--condition) 6%, transparent);
+}
+.container.kind-foreach,
+.container.kind-until {
+  border-color: var(--loop);
+  background: color-mix(in srgb, var(--loop) 6%, transparent);
+}
+.container-header {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.branch {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.branch-header {
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 12px;
+}
+.branch-yes .branch-header {
+  color: var(--yes);
+}
+.branch-no .branch-header {
+  color: var(--no);
+}
+.branch-case .branch-header {
+  color: var(--condition);
+}
+.branch-empty {
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.react-flow__node.dimmed {
+  opacity: 0.25;
+}
+.react-flow__node.match .card {
+  outline: 2px solid #f5a623;
+}
+.react-flow__edge.edge-abnormal path {
+  stroke: var(--danger);
+  stroke-dasharray: 6 4;
+}
+.react-flow__handle {
+  opacity: 0;
+}
+
+/* Details panel */
+.details {
+  width: 420px;
+  max-width: 45vw;
+  overflow: auto;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+}
+.details header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.details h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.details header button {
+  font-size: 20px;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.details dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+}
+.details dt {
+  color: var(--muted);
+}
+.details dd {
+  margin: 0;
+}
+.details pre {
+  font-size: 12px;
+  background: var(--bg);
+  padding: 8px;
+  border-radius: 6px;
+  overflow: auto;
+}
